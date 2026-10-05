@@ -32,6 +32,7 @@ object PlayRepo {
         // gplayapi'nin paketlediği cihaz profilleri (Pixel 9a)
         val id = c.resources.getIdentifier("gplayapi_px_9a", "raw", c.packageName)
         c.resources.openRawResource(id).use { p.load(it) }
+        p["Platforms"] = android.os.Build.SUPPORTED_ABIS.joinToString(",")
     }
 
     private fun fetchDispenserToken(): Pair<String, String> {

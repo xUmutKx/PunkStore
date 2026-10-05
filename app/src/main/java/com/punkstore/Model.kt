@@ -80,7 +80,7 @@ data class IndexVer(val file: IndexVerFile = IndexVerFile(), val manifest: Index
 data class IndexVerFile(val name: String = "", val sha256: String = "", val size: Long = 0)
 
 @Serializable
-data class IndexManifest(val versionName: String = "", val versionCode: Long = 0)
+data class IndexManifest(val versionName: String = "", val versionCode: Long = 0, val nativecode: List<String> = emptyList())
 
 /** Kullanıcı yorumu (Steam / Google Play). up: olumlu mu (Steam); stars: Play yıldızı. */
 class UserReview(val author: String, val text: String, val up: Boolean?, val stars: Int, val hours: Int, val votes: Int, val time: Long)

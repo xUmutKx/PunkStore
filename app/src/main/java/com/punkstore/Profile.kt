@@ -148,7 +148,7 @@ fun ProfileScreen(s: Store, onOpen: (String) -> Unit, onWishlist: () -> Unit, on
                 Spacer(Modifier.height(2.dp))
             }
             Text(t("İÇERİĞİM", "MY CONTENT"), Modifier.padding(16.dp, 18.dp, 16.dp, 8.dp), color = Steam.dim, fontSize = 15.sp, letterSpacing = 1.sp)
-            Rows(listOf(t("İstek listesi", "Wishlist") to onWishlist, t("Steam hesabı", "Steam account") to onSteam, t("İstatistikler", "Statistics") to { onNav("stats") }, t("Koleksiyonlar", "Collections") to { onNav("collections") }, t("Ayarlar", "Settings") to onSettings))
+            Rows(listOf(t("Steam hesabı", "Steam account") to onSteam, t("İstatistikler", "Statistics") to { onNav("stats") }, t("Koleksiyonlar", "Collections") to { onNav("collections") }))
             Text(s.googleEmail?.let { t("Google: ", "Google: ") + it } ?: t("Google hesabı bağlı değil (Ayarlar'dan giriş yap)", "No Google account (sign in via Settings)"), Modifier.padding(16.dp), color = Steam.dim, fontSize = 13.sp)
         }
         if (s.showcase.isNotEmpty()) {
@@ -159,7 +159,7 @@ fun ProfileScreen(s: Store, onOpen: (String) -> Unit, onWishlist: () -> Unit, on
         }
         item {
             Row(Modifier.fillMaxWidth().clickable(onClick = onAchievements).padding(16.dp, 14.dp, 16.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(t("BAŞARIMLAR", "ACHIEVEMENTS") + "  ${s.achUnlocked.size}/${ACHIEVEMENTS.size}", Modifier.weight(1f), color = Steam.btn, fontSize = 15.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+                Text(t("ROZETLER VE BAŞARIMLAR", "BADGES & ACHIEVEMENTS") + "  ${s.achUnlocked.size}/${ACHIEVEMENTS.size}", Modifier.weight(1f), color = Steam.btn, fontSize = 15.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
                 Text(t("Tümü", "All"), color = Steam.link, fontSize = 13.sp); Icon(Icons.Filled.ChevronRight, null, tint = Steam.dim)
             }
             androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

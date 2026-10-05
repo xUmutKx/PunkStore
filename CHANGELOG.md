@@ -1,5 +1,13 @@
 # Punk Store — sürüm notları
 
+## 0.15 (2026-10-05)
+- Menü/Profil tekrarları kaldırıldı: MENÜ yalnızca Steam/Ayarlar/Bilgi/Yenile; Başarımlar tek yerde; Profil'den istek listesi/ayarlar satırları çıktı; kısayol satırlarından Keşfet/İndirmeler tekrarları çıktı.
+- Rozetler + Başarımlar tek sayfa ("Rozetler ve Başarımlar", seviye rozeti dahil).
+- Yorumlar: yüklenemezse hata + "Tekrar dene"; gerçekten boşsa bölüm gizlenir.
+- ROOT/oturum kurulumunda INSTALL_FAILED_NO_MATCHING_ABIS: F-Droid'de cihaz ABI'sine uyan sürüm seçilir; Google Play isteği gerçek cihaz ABI'siyle yapılır.
+- Steam: platform simgeleri (Windows/macOS/Linux, Play'de aynı adlı oyun varsa Android), SteamSpy ile tahmini sahip sayısı/brüt gelir/ortalama oynama.
+- Gizlilik raporu (reklam/izleyici + Exodus Privacy bağlantısı).
+
 ## 0.14 (2026-10-05)
 - ÇÖKME düzeltildi: Play uygulaması sayfası (ör. İstanbulkart) `"%90 · …".format()` biçim hatasıyla çöküyordu; Steam değerlendirme özeti de aynı hatayı taşıyordu.
 - Bildirimde indirilen uygulamanın ikonu ve adı (büyük ikon), alt satırda "Punk Store".

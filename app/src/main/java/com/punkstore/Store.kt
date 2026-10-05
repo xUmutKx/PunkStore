@@ -214,8 +214,13 @@ class Store(app: Application) : AndroidViewModel(app) {
     fun loadSteamStore() { viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamLists = m; steamErr = null }.onFailure { steamErr = it.message } } }
     suspend fun searchSteamStore(q: String): List<AppItem> = runCatching { SteamStoreApi.search(q).onEach { steamMap.putIfAbsent(it.pkg, it) } }.getOrDefault(emptyList())
     val reviews = mutableStateMapOf<String, List<UserReview>>()
-    fun loadReviews(a: AppItem) { if (a.pkg in reviews || a.source == "FDROID") return; viewModelScope.launch { reviews[a.pkg] = runCatching { if (a.source == "STEAM") SteamStoreApi.reviews(a) else PlayRepo.reviews(getApplication(), a.pkg) }.getOrDefault(emptyList()) } }
-    fun enrichSteam(a: AppItem) { if (a.review.isNotBlank() || a.description.isNotBlank()) return; viewModelScope.launch { runCatching { SteamStoreApi.details(a) }.onSuccess { steamMap[a.pkg] = it } } }
+    fun loadReviews(a: AppItem, force: Boolean = false) { if ((a.pkg in reviews && !force) || a.source == "FDROID") return; reviewErr.remove(a.pkg); reviews.remove(a.pkg); viewModelScope.launch { runCatching { if (a.source == "STEAM") SteamStoreApi.reviews(a) else PlayRepo.reviews(getApplication(), a.pkg) }.onSuccess { reviews[a.pkg] = it }.onFailure { reviewErr[a.pkg] = it.message ?: it.javaClass.simpleName; reviews[a.pkg] = emptyList() } } }
+    fun enrichSteam(a: AppItem) { if (a.review.isNotBlank() || a.description.isNotBlank()) return; viewModelScope.launch { runCatching { SteamStoreApi.details(a) }.onSuccess { d ->
+        steamMap[a.pkg] = d
+        val and = runCatching { PlayRepo.search(getApplication(), a.name).firstOrNull { it.name.equals(a.name, true) } }.getOrNull()
+        if (and != null) steamMap[a.pkg] = d.copy(extra = d.extra + ("android" to and.pkg))
+    } } }
+    val reviewErr = mutableStateMapOf<String, String>()
 
     // ---- Son bakılanlar, favoriler, koleksiyonlar, geçmiş, seri ----
     private fun strList(key: String) = (prefs.getString(key, "") ?: "").split(',').filter { it.isNotBlank() }

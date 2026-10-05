@@ -75,7 +75,14 @@ fun AchievementsScreen(s: Store, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Geri", "Back")) }
-            Text(t("Başarımlar", "Achievements"), style = MaterialTheme.typography.titleLarge)
+            Text(t("Rozetler ve Başarımlar", "Badges & Achievements"), style = MaterialTheme.typography.titleLarge)
+        }
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            LevelBadge(s.level, 44); Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(t("Seviye ${s.level}", "Level ${s.level}") + "  ·  ${s.xp} XP", fontWeight = FontWeight.SemiBold)
+                LinearProgressIndicator({ s.levelProgress() }, Modifier.fillMaxWidth().padding(top = 4.dp).height(5.dp).clip(RoundedCornerShape(4.dp)), color = Steam.blue)
+            }
         }
         Column(Modifier.padding(horizontal = 16.dp)) {
             Text("$done / ${ACHIEVEMENTS.size}  (${done * 100 / ACHIEVEMENTS.size}%)", fontSize = 22.sp, fontWeight = FontWeight.Bold)

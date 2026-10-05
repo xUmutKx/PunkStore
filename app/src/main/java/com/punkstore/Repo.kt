@@ -65,7 +65,9 @@ object FdroidRepo {
 
     private fun toItem(pkg: String, p: IndexPkg): AppItem? {
         val m = p.metadata
-        val best = p.versions.values.maxByOrNull { it.manifest.versionCode } ?: return null
+        val abis = android.os.Build.SUPPORTED_ABIS.toSet()
+        val fit = p.versions.values.filter { it.manifest.nativecode.isEmpty() || it.manifest.nativecode.any { n -> n in abis } }
+        val best = fit.maxByOrNull { it.manifest.versionCode } ?: return null
         val name = m.name.loc() ?: return null
         fun pick(x: Map<String, List<IndexFile>>) = x["tr"] ?: x["en-US"] ?: x["en"] ?: x.values.firstOrNull() ?: emptyList()
         val shots = (pick(m.screenshots.phone) + pick(m.screenshots.sevenInch) + pick(m.screenshots.tenInch)).map { FDROID + it.name }.distinct().take(12)

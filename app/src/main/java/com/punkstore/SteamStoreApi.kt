@@ -67,7 +67,15 @@ object SteamStoreApi {
         fun strip(h: String?) = h.orEmpty().replace(Regex("<br\\s*/?>"), "\n").replace(Regex("<[^>]+>"), "").replace("&nbsp;", " ").trim()
         val players = runCatching { get("https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=$id")["response"]!!.jsonObject["player_count"]!!.jsonPrimitive.int.toString() }.getOrDefault("")
         val plat = d["platforms"]?.jsonObject?.let { p -> listOf("windows" to "Windows", "mac" to "macOS", "linux" to "Linux").filter { p[it.first]?.jsonPrimitive?.booleanOrNull == true }.joinToString(" · ") { it.second } }.orEmpty()
+        val spy = runCatching { get("https://steamspy.com/api.php?request=appdetails&appid=$id") }.getOrNull()
         val extra = buildMap {
+            spy?.let { sp ->
+                sp["owners"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let { put("owners", it) }
+                sp["average_forever"]?.jsonPrimitive?.intOrNull?.takeIf { it > 0 }?.let { put("avgplay", (it / 60).toString()) }
+                val usd = (sp["initialprice"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L)
+                val rng = Regex("([\\d,]+) \\.\\. ([\\d,]+)").find(sp["owners"]?.jsonPrimitive?.contentOrNull.orEmpty())
+                if (rng != null && usd > 0) { val lo = rng.groupValues[1].replace(",", "").toLong(); val hi = rng.groupValues[2].replace(",", "").toLong(); put("revenue", String.format("$%,d – $%,d", lo * usd / 100, hi * usd / 100)) }
+            }
             d["metacritic"]?.jsonObject?.get("score")?.jsonPrimitive?.content?.let { put("metacritic", it) }
             d["achievements"]?.jsonObject?.get("total")?.jsonPrimitive?.content?.let { put("achievements", it) }
             d["recommendations"]?.jsonObject?.get("total")?.jsonPrimitive?.content?.let { put("recs", it) }
