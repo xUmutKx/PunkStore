@@ -57,7 +57,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     fun googleLogin(email: String, token: String) {
         viewModelScope.launch {
             runCatching { PlayRepo.googleLogin(getApplication(), email, token) }
-                .onSuccess { googleEmail = PlayRepo.googleEmail(getApplication()); playLoading = false; loadPlay() }
+                .onSuccess { googleEmail = PlayRepo.googleEmail(getApplication()); PlayRepo.authNote?.let { error = it; PlayRepo.authNote = null }; playLoading = false; loadPlay() }
                 .onFailure { error = it.message }
         }
     }
@@ -116,7 +116,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     fun changeMethod(m: InstallMethod) { method = m; prefs.edit().putString("method", m.name).apply(); if (m == InstallMethod.ROOT) testRoot() }
     fun changeDeleteApk(v: Boolean) { deleteApk = v; prefs.edit().putBoolean("delApk", v).apply() }
     fun changeWifiOnly(v: Boolean) { wifiOnly = v; prefs.edit().putBoolean("wifiOnly", v).apply() }
-    fun changeInterval(h: Int) { intervalH = h; prefs.edit().putInt("intervalH", h).apply() }
+    fun changeInterval(h: Int) { intervalH = h; prefs.edit().putInt("intervalH", h).apply(); AutoUpdate.apply(getApplication()) }
     fun changeDispenser(u: String) { dispenser = u.trim(); prefs.edit().putString("dispenser", dispenser).apply(); PlayRepo.customDispenser = dispenser; PlayRepo.reset(getApplication()) }
     fun testRoot() { viewModelScope.launch { rootOk = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Installer.hasRoot() } } }
     fun toggleIgnore(a: AppItem) { if (a.pkg in ignored) ignored.remove(a.pkg) else ignored.add(a.pkg); prefs.edit().putString("ignored", ignored.joinToString(",")).apply() }
@@ -163,7 +163,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     private fun bump(a: AppItem, d: Int) { (a.categories + a.tags).distinct().forEach { taste[it] = (taste[it] ?: 0) + d }; prefs.edit().putString("taste", taste.entries.joinToString("|") { "${it.key}=${it.value}" }).apply() }
     private fun markSeen(a: AppItem) { seen.add(a.pkg); prefs.edit().putString("seen", seen.toList().takeLast(3000).joinToString(",")).apply() }
     /** Keşfet: sağa kaydır = beğen (istek listesi) */
-    fun discoverLike(a: AppItem) { markSeen(a); bump(a, 3); if (a.pkg !in wishlist) toggleWish(a); liked++; prefs.edit().putInt("liked", liked).apply(); deckVersion++ }
+    fun discoverLike(a: AppItem) { markSeen(a); bump(a, 3); if (a.pkg !in pins) togglePin(a); liked++; prefs.edit().putInt("liked", liked).apply(); deckVersion++ }
     fun discoverSkip(a: AppItem) { markSeen(a); bump(a, -1); deckVersion++ }
     fun resetDiscover() { seen.clear(); prefs.edit().remove("seen").apply(); deckVersion++ }
     private val seed = System.nanoTime()
@@ -234,7 +234,25 @@ class Store(app: Application) : AndroidViewModel(app) {
     // ---- Son bakılanlar, favoriler, koleksiyonlar, geçmiş, seri ----
     private fun strList(key: String) = (prefs.getString(key, "") ?: "").split(',').filter { it.isNotBlank() }
     val recent = mutableStateListOf<String>().apply { addAll(strList("recent")) }
-    fun noteView(p: String) { recent.remove(p); recent.add(0, p); while (recent.size > 40) recent.removeAt(recent.lastIndex); prefs.edit().putString("recent", recent.joinToString(",")).apply() }
+    /** Son 48 saatte görüntülenenleri ana sayfada gizle (yeni uygulama keşfetmek için) */
+    val viewTimes = mutableStateMapOf<String, Long>().apply { (prefs.getString("viewTimes", "") ?: "").split(',').filter { it.contains(':') }.forEach { put(it.substringBefore(':'), it.substringAfter(':').toLongOrNull() ?: 0L) } }
+    var hideViewed by mutableStateOf(prefs.getBoolean("hideViewed", false)); private set
+    fun changeHideViewed(v: Boolean) { hideViewed = v; prefs.edit().putBoolean("hideViewed", v).apply() }
+    fun hv(l: List<AppItem>): List<AppItem> { if (!hideViewed) return l; val lim = System.currentTimeMillis() - 48 * 3600_000L; return l.filter { (viewTimes[it.pkg] ?: 0L) < lim && (impr[it.pkg] ?: 0L) < lim } }
+    /** Ana sayfada ekranda ~5 sn kalan kart "görüldü" sayılır (liste bir sonraki yenilemede/dönüşte güncellenir, kaymaz) */
+    private val impr = mutableMapOf<String, Long>().apply { (prefs.getString("impr", "") ?: "").split(',').filter { it.contains(':') }.forEach { put(it.substringBefore(':'), it.substringAfter(':').toLongOrNull() ?: 0L) } }
+    fun noteImpression(p: String) {
+        impr[p] = System.currentTimeMillis()
+        if (impr.size % 10 == 0) prefs.edit().putString("impr", impr.entries.sortedByDescending { it.value }.take(800).joinToString(",") { "${it.key}:${it.value}" }).apply()
+    }
+    var longPress by mutableStateOf(prefs.getInt("longPress", LongPressMode.SHEET)); private set
+    fun changeLongPress(v: Int) { longPress = v; prefs.edit().putInt("longPress", v).apply() }
+    var boldText by mutableStateOf(prefs.getBoolean("boldText", false)); private set
+    fun changeBoldText(v: Boolean) { boldText = v; prefs.edit().putBoolean("boldText", v).apply() }
+    fun noteView(p: String) {
+        viewTimes[p] = System.currentTimeMillis()
+        prefs.edit().putString("viewTimes", viewTimes.entries.sortedByDescending { it.value }.take(500).joinToString(",") { "${it.key}:${it.value}" }).apply()
+        recent.remove(p); recent.add(0, p); while (recent.size > 40) recent.removeAt(recent.lastIndex); prefs.edit().putString("recent", recent.joinToString(",")).apply() }
     val pins = mutableStateListOf<String>().apply { addAll(strList("pins")) }
     fun togglePin(a: AppItem) { if (a.pkg in pins) pins.remove(a.pkg) else { pins.add(0, a.pkg); remember(a) }; prefs.edit().putString("pins", pins.joinToString(",")).apply() }
     val collections = mutableStateMapOf<String, List<String>>().apply { (prefs.getString("cols", "") ?: "").split('|').filter { it.contains(':') }.forEach { put(it.substringBefore(':'), it.substringAfter(':').split(',').filter { x -> x.isNotBlank() }) } }
@@ -337,10 +355,14 @@ class Store(app: Application) : AndroidViewModel(app) {
         val now = System.currentTimeMillis()
         new.forEach { achUnlocked.add(it.id); achTime[it.id] = now }
         prefs.edit().putString("ach", achUnlocked.joinToString(",")).putString("achT", achTime.entries.joinToString(",") { "${it.key}:${it.value}" }).apply()
-        achToast = new.last()
+        achToast = new.lastOrNull()
     }
     var compactInstalled by mutableStateOf(prefs.getBoolean("compactInst", true)); private set
     fun changeCompactInstalled(v: Boolean) { compactInstalled = v; prefs.edit().putBoolean("compactInst", v).apply() }
+    var bgUpdate by mutableStateOf(prefs.getBoolean("bgUpdate", false)); private set
+    fun changeBgUpdate(v: Boolean) { bgUpdate = v; prefs.edit().putBoolean("bgUpdate", v).apply(); AutoUpdate.apply(getApplication()) }
+    var showSystem by mutableStateOf(prefs.getBoolean("showSystem", false)); private set
+    fun changeShowSystem(v: Boolean) { showSystem = v; prefs.edit().putBoolean("showSystem", v).apply() }
     var floatDock by mutableStateOf(prefs.getBoolean("floatDock", false)); private set
     fun changeFloatDock(v: Boolean) { floatDock = v; prefs.edit().putBoolean("floatDock", v).apply() }
     var splash by mutableStateOf(prefs.getBoolean("splash", true)); private set

@@ -22,23 +22,29 @@ fun GoogleLoginScreen(onToken: (email: String, token: String) -> Unit, onBack: (
         AndroidView(factory = { ctx ->
             CookieManager.getInstance().removeAllCookies(null)
             WebView(ctx).apply {
-                settings.javaScriptEnabled = true; settings.domStorageEnabled = true
+                settings.javaScriptEnabled = true; settings.domStorageEnabled = true; settings.databaseEnabled = true; settings.allowContentAccess = true
+                settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
                 var done = false
+                // Aurora Store gibi: giriş sayfasındaki 'profileIdentifier' öğesinden e-posta okunur; öğe geç gelebilir, birkaç kez denenir
+                fun readMail(view: WebView, cookies: String, tok: String, tries: Int) {
+                    view.evaluateJavascript("(function(){var e=document.getElementById('profileIdentifier')||document.querySelector('[data-profile-identifier]')||document.querySelector('[data-email]');return e?(e.innerText||e.textContent||e.getAttribute('data-email')||''):''})()") { raw ->
+                        val mail = raw?.trim('"')?.replace("\\u0040", "@")?.trim()?.takeIf { it.contains('@') }
+                            ?: cookies.split(';').map { it.trim() }.firstOrNull { it.startsWith("oauth_email=") }?.substringAfter('=')?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.contains('@') }
+                        when {
+                            mail != null -> onToken(mail, tok)
+                            tries < 8 -> view.postDelayed({ readMail(view, cookies, tok, tries + 1) }, 600)
+                            else -> { done = false }
+                        }
+                    }
+                }
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String?) {
                         val cookies = CookieManager.getInstance().getCookie(url).orEmpty()
                         val tok = cookies.split(';').map { it.trim() }.firstOrNull { it.startsWith("oauth_token=") }?.substringAfter('=')
-                        if (tok != null && !done) {
-                            done = true
-                            view.evaluateJavascript("(function(){var e=document.querySelector('[data-profile-identifier]');return e?e.textContent:''})()") { raw ->
-                                val mail = raw?.trim('"')?.takeIf { it.contains('@') }
-                                    ?: cookies.split(';').map { it.trim() }.firstOrNull { it.startsWith("oauth_email=") }?.substringAfter('=')?.let { java.net.URLDecoder.decode(it, "UTF-8") }.orEmpty()
-                                onToken(mail, tok)
-                            }
-                        }
+                        if (tok != null && !done) { done = true; readMail(view, cookies, tok, 0) }
                     }
                 }
-                loadUrl("https://accounts.google.com/EmbeddedSetup")
+                loadUrl("https://accounts.google.com/EmbeddedSetup/identifier?flowName=EmbeddedSetupAndroid")
             }
         }, modifier = Modifier.fillMaxSize())
     }

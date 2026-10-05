@@ -47,6 +47,10 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
             }
             SteamSwitchRow(t("Açılış animasyonu", "Startup animation"), on = s.splash) { s.changeSplash(it) }
             SteamSwitchRow(t("Yüzen dock", "Floating dock"), t("Alt çubuk ekranın üstünde yüzen yuvarlak bir dock olur", "Bottom bar becomes a floating rounded dock"), s.floatDock) { s.changeFloatDock(it) }
+            SteamChoiceRow(t("Basılı tutunca: alttan açılan sayfa", "Long-press: bottom sheet"), t("Uygulamalara basılı tutunca alttan yukarı çıkan işlem sayfası", "Action sheet that slides up from the bottom"), s.longPress == LongPressMode.SHEET) { s.changeLongPress(LongPressMode.SHEET) }
+            SteamChoiceRow(t("Basılı tutunca: küçük menü", "Long-press: small menu"), selected = s.longPress == LongPressMode.MENU) { s.changeLongPress(LongPressMode.MENU) }
+            SteamChoiceRow(t("Basılı tutunca: hiçbir şey", "Long-press: do nothing"), selected = s.longPress == LongPressMode.OFF) { s.changeLongPress(LongPressMode.OFF) }
+            SteamSwitchRow(t("Kalın yazı", "Bold text"), t("Tüm uygulamada yazılar daha kalın", "Makes text heavier across the app"), s.boldText) { s.changeBoldText(it) }
             SteamSwitchRow(t("Titreşim", "Haptics"), t("Keşfet kaydırmalarında", "On Discover swipes"), s.haptic) { s.changeHaptic(it) }
             SteamRow(t("Yazı boyutu", "Text size"), "%${(s.fontScale * 100).toInt()}", chevron = false)
             Box(Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 20.dp)) {
@@ -73,6 +77,7 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
 
             SteamSection(t("Güncellemeler", "Updates"))
             SteamSwitchRow(t("Otomatik denetle ve bildir", "Auto-check and notify"), on = s.autoCheck) { s.changeAutoCheck(it) }
+            SteamSwitchRow(t("Arka planda otomatik güncelle", "Update apps automatically in the background"), t("Uygulama kapalıyken güncellemeleri indirir ve kurar. Root ya da bu uygulamanın kurduğu uygulamalarda onaysız; diğerlerinde sistem onay ister.", "Downloads and installs updates while the app is closed. Silent with root or for apps this store installed; otherwise Android asks to confirm."), s.bgUpdate) { s.changeBgUpdate(it) }
             Row(Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(t("Sıklık", "Every"), color = Steam.dim, fontSize = 15.sp)
                 listOf(1, 3, 6, 12, 24).forEach { h ->

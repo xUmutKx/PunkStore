@@ -129,7 +129,7 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
             inst && !upd -> Brush.horizontalGradient(listOf(Steam.panel2, Color(0xFF3D6E8E)))
             else -> Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB))
         }
-        val shape = RoundedCornerShape(4.dp)
+        val shape = RoundedCornerShape(2.dp)
         val base = when {
             failed -> Color(0xFFC4501F)
             task != null && st != DlState.DONE -> Color(0xFF3B4A58)
@@ -137,8 +137,8 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
             else -> Color(0xFF5BA02B)
         }
         Box(
-            modifier.clip(shape).background(base).drawBehind {
-                if (prog > 0f) drawRect(Color(0xFF5BA02B), size = androidx.compose.ui.geometry.Size(size.width * prog, size.height),
+            modifier.clip(shape).background(if (base == Color(0xFF5BA02B)) Brush.verticalGradient(listOf(Color(0xFF75B022), Color(0xFF588A1B))) else Brush.verticalGradient(listOf(base, base))).drawBehind {
+                if (prog > 0f) drawRect(Color(0xFF6BA524), size = androidx.compose.ui.geometry.Size(size.width * prog, size.height),
                     alpha = if (st == DlState.VERIFYING || st == DlState.INSTALLING) pulse.value else 1f)
             }.pressScale(onClick)
                 .padding(horizontal = if (compact) 14.dp else 22.dp, vertical = if (compact) 8.dp else 12.dp),
@@ -221,7 +221,7 @@ fun AppRow(s: Store, a: AppItem, onOpen: (String) -> Unit) {
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(if (st) 3.dp else 16.dp))
             .background(if (st) Brush.verticalGradient(Steam.panelGrad) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.surfaceContainerHigh)))
-            .border(1.dp, if (st) Steam.edgeLo else Color.Transparent, RoundedCornerShape(if (st) Steam.corner.dp else 16.dp)).steamBevel().clickable { onOpen(a.pkg) }.padding(10.dp),
+            .border(1.dp, if (st) Steam.edgeLo else Color.Transparent, RoundedCornerShape(if (st) Steam.corner.dp else 16.dp)).steamBevel().appPress(s, a, onOpen).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Capsule(a, Modifier.width(118.dp).height(66.dp), 30, if (st) 3 else 12)
@@ -267,7 +267,7 @@ fun BottomBar(design: Design, tab: Tab, updates: Int, floating: Boolean = false,
         }
     } else {
         NavigationBar {
-            Tab.values().filter { it.bottom || it == Tab.SEARCH }.forEach { t ->
+            Tab.values().filter { it.bottom }.forEach { t ->
                 NavigationBarItem(selected = t == tab, onClick = { onTab(t) }, label = { Text(t.label, fontSize = 10.sp, maxLines = 1) },
                     icon = { Icon(if (t == tab) icons[t]!!.first else icons[t]!!.second, t.label) })
             }
@@ -351,13 +351,17 @@ fun DlBar(progress: Float, modifier: Modifier = Modifier, color: Color = Steam.b
 fun DownloadDock(s: Store, onOpen: () -> Unit) {
     val tasks = s.dl.tasks.values.filter { it.state != DlState.DONE }
     androidx.compose.animation.AnimatedVisibility(tasks.isNotEmpty(), enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()) {
-        val tk = tasks.firstOrNull { it.state == DlState.DOWNLOADING } ?: tasks.first()
+        val tk = tasks.firstOrNull { it.state == DlState.DOWNLOADING } ?: tasks.firstOrNull() ?: return@AnimatedVisibility
         val prog by androidx.compose.animation.core.animateFloatAsState(if (tk.state == DlState.INSTALLING || tk.state == DlState.VERIFYING) 1f else tk.progress, androidx.compose.animation.core.tween(250), label = "dock")
-        Column(Modifier.fillMaxWidth().background(Color(0xE61B2838)).clickable(onClick = onOpen)) {
-            DlBar(prog, color = if (tk.state == DlState.FAILED) Color(0xFFA34C25) else Steam.btn, track = Color(0x33FFFFFF))
+        val mat = Steam.material
+        val bg = if (mat) MaterialTheme.colorScheme.surfaceContainerHigh else Color(0xE61B2838)
+        val fg = if (mat) MaterialTheme.colorScheme.onSurface else Color.White
+        val dim = if (mat) MaterialTheme.colorScheme.onSurfaceVariant else Steam.dim
+        Column(Modifier.fillMaxWidth().background(bg).clickable(onClick = onOpen)) {
+            DlBar(prog, color = if (tk.state == DlState.FAILED) Color(0xFFA34C25) else if (mat) MaterialTheme.colorScheme.primary else Steam.btn, track = if (mat) MaterialTheme.colorScheme.surfaceVariant else Color(0x33FFFFFF))
             Row(Modifier.padding(horizontal = 12.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(tk.name + if (tasks.size > 1) "  +${tasks.size - 1}" else "", Modifier.weight(1f), color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(dlStatus(tk), color = Steam.dim, fontSize = 11.sp, maxLines = 1)
+                Text(tk.name + if (tasks.size > 1) "  +${tasks.size - 1}" else "", Modifier.weight(1f), color = fg, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(dlStatus(tk), color = dim, fontSize = 11.sp, maxLines = 1)
             }
         }
     }

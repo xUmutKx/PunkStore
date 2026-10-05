@@ -69,6 +69,22 @@ fun Banner(a: AppItem, modifier: Modifier = Modifier, icon: Int = 0, fade: Boole
     }
 }
 
+/** Satın alma panelindeki fiyat: koyu yeşil indirim kutusu (limon yeşili yazı) + koyu mavi-gri fiyat kutusu. */
+@Composable
+fun BuyPrice(a: AppItem, modifier: Modifier = Modifier) {
+    val free = a.price.isBlank() && a.discount == 0
+    val disc = a.discount > 0
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (free || disc) Box(Modifier.fillMaxHeight().background(Color(0xFF4C6B22)).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Text(if (disc) "-${a.discount}%" else "-100%", color = Color(0xFFBEEE11), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+        }
+        Column(Modifier.fillMaxHeight().background(Color(0xFF344654)).padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.End) {
+            if (disc && a.origPrice.isNotBlank()) Text(a.origPrice, color = Color(0xFF9AA7B0), fontSize = 13.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough, lineHeight = 14.sp, maxLines = 1, softWrap = false)
+            Text(if (free) t("ÜCRETSİZ", "FREE") else a.price, color = Color(0xFFBFD7EA), fontSize = 19.sp, maxLines = 1, softWrap = false)
+        }
+    }
+}
+
 /** Steam'in indirim kutusu: yeşil % + (üstü çizili eski fiyat) + güncel fiyat; ücretsiz uygulamada "ÜCRETSİZ". */
 @Composable
 fun PriceTag(a: AppItem, modifier: Modifier = Modifier) {
@@ -138,13 +154,14 @@ val QA_UPDATES = listOf(QA("storage", Icons.Filled.Storage, "Depolama", "Storage
 
 /** İkonlu kısayol satırı. */
 @Composable
-fun QuickRow(items: List<QA>, onNav: (String) -> Unit) = Row(Modifier.horizontalScroll(rememberScrollState()).padding(12.dp, 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+fun QuickRow(items: List<QA>, onNav: (String) -> Unit, extra: @Composable () -> Unit = {}) = Row(Modifier.horizontalScroll(rememberScrollState()).padding(12.dp, 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    extra()
     items.forEach { q -> Row(Modifier.clip(RoundedCornerShape(Steam.corner.dp)).skinBg().clickable { onNav(q.key) }.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(q.icon, null, tint = Steam.btn, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t(q.tr, q.en), color = W, fontSize = 13.sp, maxLines = 1, softWrap = false) } }
 }
 
 @Composable
-private fun H(text: String, modifier: Modifier = Modifier) = Text(text.uppercase(), modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = W, fontSize = 15.sp, letterSpacing = 1.sp)
+private fun H(text: String, modifier: Modifier = Modifier) = Text(text, modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = W, fontSize = 21.sp, fontWeight = FontWeight.Bold)
 
 @Composable
 private fun SeeAll(onClick: () -> Unit) = Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.CenterEnd) {
@@ -152,36 +169,57 @@ private fun SeeAll(onClick: () -> Unit) = Box(Modifier.fillMaxWidth().padding(ho
 }
 
 /** Büyük dikey kapsül (Steam ana sayfa kayan afişleri). */
-@Composable
-private fun BigCapsule(a: AppItem, onOpen: (String) -> Unit, w: Int = 300) {
-    Box(Modifier.width(w.dp).height(w.dp * 3 / 4).clip(RoundedCornerShape(Steam.corner.dp)).clickable { onOpen(a.pkg) }) {
-        Banner(a, Modifier.fillMaxSize(), icon = 0)
-        Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
-            AppIcon(a, 48, 6)
-            Text(a.name, color = W, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp).widthIn(max = (w - 20).dp))
-        }
-        PriceTag(a, Modifier.align(Alignment.BottomEnd))
-    }
-}
+val LocalImpression = androidx.compose.runtime.compositionLocalOf<((String) -> Unit)?> { null }
 
-/** İki sütunlu ızgara hücresi: afiş + altında fiyat şeridi. */
+/** Steam'in fiyat şeridi: limon yeşili indirim kutusu + koyu fiyat kutusu, kapağın altında sağa yaslı. */
 @Composable
-private fun GridCell(s: Store, a: AppItem, modifier: Modifier, onOpen: (String) -> Unit) {
-    Column(modifier.clickable { onOpen(a.pkg) }) {
-        Banner(a, Modifier.fillMaxWidth().aspectRatio(1.75f).clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)), icon = 30)
-        Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(Steam.panelGrad)).padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(a.name, Modifier.weight(1f), color = W, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (s.isInstalled(a)) Icon(Icons.Filled.CheckCircle, null, tint = Steam.greenA, modifier = Modifier.size(16.dp)) else PriceTag(a)
+fun PriceStrip(a: AppItem, modifier: Modifier = Modifier) {
+    val disc = a.discount > 0
+    val free = a.price.isBlank()
+    Row(modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+        if (disc) Box(Modifier.fillMaxHeight().background(Color(0xFFA4D007)).padding(horizontal = 9.dp), contentAlignment = Alignment.Center) { Text("-${a.discount}%", color = Color(0xFF254007), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, softWrap = false) }
+        Row(Modifier.fillMaxHeight().background(Color(0xFF22262D)).padding(horizontal = 9.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (disc && a.origPrice.isNotBlank()) Text(a.origPrice, color = Color(0xFF8A939B), fontSize = 13.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough, maxLines = 1, softWrap = false, modifier = Modifier.padding(end = 6.dp))
+            Text(if (free) (if (a.rating > 0) "★ %.1f".format(a.rating) else t("Ücretsiz", "Free")) else a.price, color = W, fontSize = 16.sp, maxLines = 1, softWrap = false)
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Steam kartı: kapak görseli + altında fiyat şeridi. Gerçek afişi olmayan uygulamalar (telefon ekran görüntüsü yerine) dikey bir kartta: ikon, ad, açıklama. */
+@Composable
+fun SteamCard(s: Store, a: AppItem, modifier: Modifier = Modifier, onOpen: (String) -> Unit) {
+    val imp = LocalImpression.current
+    LaunchedEffect(a.pkg) { if (imp != null) { kotlinx.coroutines.delay(20_000); imp(a.pkg) } }
+    if (a.source != "STEAM" && a.banner.isBlank()) {
+        Column(modifier.heightIn(min = 190.dp).clip(RoundedCornerShape(3.dp)).background(Steam.card).appPress(s, a, onOpen).padding(10.dp)) {
+            AppIcon(a, 64, 12)
+            Text(a.name, Modifier.padding(top = 8.dp), color = W, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (a.summary.isNotBlank()) Text(a.summary, Modifier.padding(top = 2.dp), color = Steam.dim, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.weight(1f).heightIn(min = 6.dp))
+            PriceStrip(a, Modifier.align(Alignment.End))
+        }
+        return
+    }
+    val showName = a.source != "STEAM" || a.cover == null
+    Column(modifier.appPress(s, a, onOpen)) {
+        Banner(a, Modifier.fillMaxWidth().aspectRatio(1.78f), icon = 0, fade = false, image = a.banner.ifBlank { null })
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (showName) Text(a.name, Modifier.weight(1f).padding(end = 6.dp), color = W, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            else Spacer(Modifier.weight(1f))
+            PriceStrip(a)
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit, onNav: (String) -> Unit = {}) {
-    val featured = remember(s.apps) { (s.recentlyUpdated.filter { it.cover != null }).take(8) }
-    val fresh = remember(s.apps) { s.newest.filter { it.cover != null }.take(16) }
-    val recent = remember(s.apps) { s.recentlyUpdated.take(30) }
+    val hvKey = s.hideViewed to s.viewTimes.size
+    val featured = remember(s.apps, hvKey) { s.hv(s.recentlyUpdated.filter { it.banner.isNotBlank() }).take(8) }
+    val fresh = remember(s.apps, hvKey) { s.hv(s.newest.filter { it.cover != null }).take(16) }
+    val recent = remember(s.apps, hvKey) { s.hv(s.recentlyUpdated).take(30) }
+    androidx.compose.runtime.CompositionLocalProvider(LocalImpression provides (if (s.hideViewed) { p: String -> s.noteImpression(p) } else null)) {
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(s.loading || s.checking, { onNav("refresh") }, Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
         item {
             if (s.loading) Column(Modifier.fillMaxWidth().padding(14.dp)) {
@@ -205,30 +243,32 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
                 .pointerInput(Unit) { detectTapGestures(onPress = { o -> touch = o; hue++; tryAwaitRelease(); touch = null }, onTap = {}) }
                 .pointerInput(Unit) { awaitPointerEventScope { while (true) { val e = awaitPointerEvent(); if (touch != null) e.changes.firstOrNull()?.let { touch = it.position } } } }) {
                 Text("PUNK\nSTORE", Modifier.align(Alignment.CenterStart).padding(start = 20.dp), color = W, fontSize = 40.sp, lineHeight = 40.sp, fontWeight = FontWeight.Black)
-                Text(t("${s.apps.size} uygulama · F-Droid + Google Play", "${s.apps.size} apps · F-Droid + Google Play"), Modifier.align(Alignment.BottomStart).padding(20.dp), color = Color(0xFFFFE9C8), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Icon(Icons.Filled.Settings, null, Modifier.align(Alignment.CenterEnd).size(110.dp).padding(end = 10.dp).graphicsLayer { rotationZ = rot }, tint = Color(0x44FFFFFF))
             }
         }
-        item { QuickRow(QA_STORE, onNav) }
+        item { QuickRow(QA_STORE, onNav) {
+            Row(Modifier.clip(RoundedCornerShape(Steam.corner.dp)).background(if (s.hideViewed) Steam.blue else Steam.wish).clickable { s.changeHideViewed(!s.hideViewed) }.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (s.hideViewed) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, null, tint = if (s.hideViewed) W else Steam.btn, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                Text(t("Görüntülenenleri gizle", "Hide viewed"), color = W, fontSize = 13.sp, maxLines = 1, softWrap = false) } } }
         if (featured.isNotEmpty()) item {
             val pager = rememberPagerState { featured.size }
             Column(Modifier.padding(top = 16.dp)) {
-                HorizontalPager(pager, contentPadding = PaddingValues(horizontal = 16.dp), pageSpacing = 10.dp, pageSize = androidx.compose.foundation.pager.PageSize.Fixed(310.dp)) { i -> BigCapsule(featured[i], onOpen, 310) }
+                HorizontalPager(pager, contentPadding = PaddingValues(horizontal = 16.dp), pageSpacing = 10.dp, pageSize = androidx.compose.foundation.pager.PageSize.Fixed(310.dp)) { i -> SteamCard(s, featured[i], Modifier.width(310.dp), onOpen) }
                 Row(Modifier.padding(16.dp, 10.dp)) { repeat(featured.size) { Box(Modifier.padding(end = 4.dp).size(width = if (pager.currentPage == it) 26.dp else 10.dp, height = 4.dp).background(if (pager.currentPage == it) Color(0xFFBBBBBB) else Color(0xFF555B66))) } }
             }
         }
         if (s.wishlist.isNotEmpty()) { item { H(t("İstek listen", "Your wishlist")) }; item { AppCarousel(s, s.wishApps, onOpen) } }
         item { H(t("Kategoriye göz at", "Browse by category")); LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(s.categories.take(24)) { c -> Text(I18n.category(c), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).skinBg().clickable { onCategory(c) }.padding(horizontal = 14.dp, vertical = 10.dp), color = W, fontSize = 14.sp) } } }
-        if (s.recommended.isNotEmpty()) { item { H(t("Senin için önerilenler", "Recommended for you")) }; item { AppCarousel(s, s.recommended, onOpen) } }
+        if (s.recommended.isNotEmpty()) { item { H(t("Senin için önerilenler", "Recommended for you")) }; item { AppCarousel(s, s.hv(s.recommended), onOpen) } }
         listOf("specials" to t("Steam — indirimdekiler", "Steam — specials"), "top" to t("Steam — çok satanlar", "Steam — top sellers"), "new" to t("Steam — yeni çıkanlar", "Steam — new releases"), "soon" to t("Steam — yakında", "Steam — coming soon")).forEach { (k, title) ->
-            s.steamLists[k]?.takeIf { it.isNotEmpty() }?.let { l -> item { H(title) }; item { AppCarousel(s, l, onOpen) } }
+            s.steamLists[k]?.let { s.hv(it) }?.takeIf { it.isNotEmpty() }?.let { l -> item { Column(Modifier.padding(vertical = 6.dp).then(if (k == "specials") Modifier.padding(horizontal = 8.dp).background(Color(0xFF3B1F16)).padding(vertical = 8.dp) else Modifier)) { H(title); AppCarousel(s, l, onOpen) } } }
         }
-        if (s.playTop.isNotEmpty()) { item { H("Google Play — " + t("en çok indirilenler", "Top free")) }; item { AppCarousel(s, s.playTop, onOpen) } }
-        if (s.playGames.isNotEmpty()) { item { H("Google Play — " + t("oyunlar", "Games")) }; item { AppCarousel(s, s.playGames, onOpen) } }
+        if (s.playTop.isNotEmpty()) { item { H("Google Play — " + t("en çok indirilenler", "Top free")) }; item { AppCarousel(s, s.hv(s.playTop), onOpen) } }
+        if (s.playGames.isNotEmpty()) { item { H("Google Play — " + t("oyunlar", "Games")) }; item { AppCarousel(s, s.hv(s.playGames), onOpen) } }
         item { H(t("Yeni çıkanlar", "New releases")) }
         items(fresh.chunked(2)) { row ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { GridCell(s, it, Modifier.weight(1f), onOpen) }
+                row.forEach { SteamCard(s, it, Modifier.weight(1f), onOpen) }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
@@ -237,6 +277,8 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
         items(recent, key = { it.pkg }) { AppRow(s, it, onOpen) }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    }
+    }
 }
 
 // ---------------- KÜTÜPHANE: dikey kapak ızgarası ----------------
@@ -244,6 +286,7 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
 @Composable
 fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {}) {
     val ctx = LocalContext.current
+    var instFilter by remember { mutableIntStateOf(0) }   // 0 hepsi, 1 oyunlar, 2 oynanan/kullanılan
     val upd = s.apps.filter { s.isInstalled(it) && s.hasUpdate(it) }
     val ign = s.apps.filter { s.isInstalled(it) && it.pkg in s.ignored && (s.installed[it.pkg] ?: 0) < it.versionCode }
     val df = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
@@ -259,7 +302,6 @@ fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(if (s.checking) t("Denetleniyor…", "Checking…") else t("Son denetim: ", "Last check: ") + if (s.lastCheck > 0) df.format(Date(s.lastCheck)) else "-", color = Steam.text, fontSize = 13.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically) { Switch(s.autoCheck, { s.changeAutoCheck(it) }, Modifier.scale(.8f)); Text(t("Otomatik denetle + bildir", "Auto-check + notify"), color = Steam.dim, fontSize = 12.sp) }
                 }
                 Text(t("DENETLE", "CHECK NOW"), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.btn).clickable(enabled = !s.checking) { s.checkUpdates(true) }.padding(horizontal = 16.dp, vertical = 10.dp), color = W, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
@@ -282,12 +324,28 @@ fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
             }
         }
         if (ign.isNotEmpty()) { item { H(t("Yoksayılan güncellemeler", "Ignored updates")) }; items(ign, key = { "i" + it.pkg }) { a -> Column { AppRow(s, a, onOpen); Text(t("Yoksaymayı kaldır", "Stop ignoring"), Modifier.padding(start = 16.dp, bottom = 4.dp).clickable { s.toggleIgnore(a) }, color = Steam.link, fontSize = 11.sp) } } }
-        val inst = s.libApps.filter { s.isInstalled(it) }.sortedBy { it.name.lowercase() }
-        if (inst.isNotEmpty()) {
+        val pm = ctx.packageManager
+        fun isSys(p: String) = runCatching { val ai = pm.getApplicationInfo(p, 0)
+            ai.flags and (android.content.pm.ApplicationInfo.FLAG_SYSTEM or android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0 ||
+                listOf("/system", "/product", "/vendor", "/system_ext", "/apex", "/odm").any { ai.sourceDir.startsWith(it) } }.getOrDefault(false)
+        fun isGame(a: AppItem) = a.categories.any { it.contains("Game", true) } || runCatching { pm.getApplicationInfo(a.pkg, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }.getOrDefault(false)
+        val inst = s.libApps.filter { s.isInstalled(it) && (s.showSystem || !isSys(it.pkg)) }.filter { a -> when (instFilter) { 1 -> isGame(a); 2 -> (s.launches[a.pkg] ?: 0) > 0 || (s.lastPlayed[a.pkg] ?: 0L) > 0; else -> true } }.sortedBy { it.name.lowercase() }
+        run {
             item {
                 Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     H(t("Yüklü uygulamalar (${inst.size})", "Installed apps (${inst.size})"), Modifier.weight(1f))
-                    Text(t("Kompakt", "Compact"), color = Steam.dim, fontSize = 12.sp); Switch(s.compactInstalled, { s.changeCompactInstalled(it) }, Modifier.scale(.75f))
+                    @Composable fun Toggle(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, f: () -> Unit) = Row(Modifier.padding(start = 6.dp).clip(RoundedCornerShape(2.dp)).background(if (on) Steam.blue else Steam.wish).clickable(onClick = f).padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(icon, null, tint = if (on) W else Steam.link, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text(label, color = if (on) W else Steam.link, fontSize = 12.sp, maxLines = 1) }
+                    Toggle(Icons.Filled.Android, t("Sistem", "System"), s.showSystem) { s.changeShowSystem(!s.showSystem) }
+                    Toggle(Icons.Filled.ViewList, t("Kompakt", "Compact"), s.compactInstalled) { s.changeCompactInstalled(!s.compactInstalled) }
+                }
+            }
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(Triple(0, Icons.Filled.Apps, t("Hepsi", "All")), Triple(1, Icons.Filled.SportsEsports, t("Oyunlar", "Games")), Triple(2, Icons.Filled.History, t("Oynanan / kullanılan", "Played / used"))).forEach { (k, ic, l) ->
+                        Row(Modifier.clip(RoundedCornerShape(2.dp)).background(if (instFilter == k) Steam.blue else Steam.wish).clickable { instFilter = k }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(ic, null, tint = if (instFilter == k) W else Steam.link, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text(l, color = if (instFilter == k) W else Steam.link, fontSize = 12.sp, maxLines = 1) }
+                    }
                 }
             }
             items(inst, key = { "in" + it.pkg }) { a ->
@@ -365,39 +423,46 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
             }
             Spacer(Modifier.height(20.dp))
             // "Satın al" paneli = Yükle
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(18.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(if (s.design == Design.STEAM) Color(0xFF3A4556) else Steam.box).padding(horizontal = 20.dp, vertical = 18.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
-                    Text((if (a.source == "STEAM") t("Steam'de: ", "On Steam: ") else t("Yükle: ", "Get ")) + a.name, Modifier.weight(1f), color = W, fontSize = 22.sp, lineHeight = 27.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text((if (a.source == "STEAM") t("Satın al: ", "Buy ") else t("Yükle: ", "Get ")) + a.name, Modifier.weight(1f), color = W, fontSize = 26.sp, lineHeight = 30.sp)
+                    Row(Modifier.padding(start = 8.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (a.source == "STEAM") {
                             val pl = a.extra["platforms"].orEmpty()
                             if ("Windows" in pl || pl.isEmpty()) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_windows), "Windows", tint = W, modifier = Modifier.size(26.dp))
                             if ("macOS" in pl) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_apple), "macOS", tint = W, modifier = Modifier.size(26.dp))
                             if ("Linux" in pl) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_linux), "Linux", tint = W, modifier = Modifier.size(26.dp))
                             if (a.extra["android"] != null) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_android), "Android", tint = W, modifier = Modifier.size(28.dp))
-                        } else Icon(androidx.compose.ui.res.painterResource(if (a.source == "PLAY") R.drawable.ic_android else R.drawable.ic_android), null, tint = W, modifier = Modifier.size(32.dp))
+                        } else Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_android), null, tint = W, modifier = Modifier.size(30.dp))
                     }
                 }
-                Text(sizeText(a.apkSize).let { if (it.isBlank()) "" else t("Boyut: ", "Size: ") + it }, color = Steam.link, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PriceTag(a, Modifier.height(52.dp))
-                    ActionButton(s, a, Modifier.weight(1f).heightIn(min = 52.dp))
+                sizeText(a.apkSize).let { if (it.isNotBlank()) Text(t("Boyut: ", "Size: ") + it, color = Steam.link, fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp)) }
+                // Steam'deki gibi: sağa yaslı, siyah çerçeveli [indirim | fiyat | yeşil düğme]
+                Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.End) {
+                    Row(Modifier.background(Color.Black).padding(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        BuyPrice(a, Modifier.height(52.dp))
+                        Spacer(Modifier.width(3.dp))
+                        ActionButton(s, a, Modifier.heightIn(min = 52.dp))
+                    }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            // ---- İSTEK LİSTESİ (tam genişlik) + eylemler (ikonlu)
-            Text(if (s.isWished(a)) t("♥ İstek listende", "♥ On your wishlist") else t("İstek listene ekle", "Add to your wishlist"), Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable { s.toggleWish(a) }.padding(vertical = 9.dp), color = Steam.link, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            Spacer(Modifier.height(10.dp))
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp), maxItemsInEachRow = 2) {
-                @Composable fun Chip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) = Row(Modifier.weight(1f).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, tint = Steam.link, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(5.dp)); Text(label, color = Steam.link, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // ---- İSTEK LİSTESİ + eylemler: hepsi tek satırda, ikon üstte kısa etiket altta
+            class Act(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val go: () -> Unit)
+            val acts = buildList {
+                add(Act(if (s.isWished(a)) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, t("İstek", "Wishlist")) { s.toggleWish(a) })
+                if (!s.isInstalled(a)) add(Act(Icons.Filled.VideogameAsset, if (a.pkg in s.libAdded) t("Kütüphane ✓", "Library ✓") else t("Kütüphane", "Library")) { s.toggleLibrary(a) })
+                if (s.isInstalled(a)) add(Act(Icons.Filled.Delete, t("Kaldır", "Remove")) { s.uninstall(ctx, a.pkg) })
+                add(Act(if (a.pkg in s.pins) Icons.Filled.Star else Icons.Filled.StarBorder, if (a.pkg in s.pins) t("Favori ✓", "Pinned") else t("Favori", "Pin")) { s.togglePin(a) })
+                add(Act(Icons.Filled.Folder, t("Koleksiyon", "Collect")) { colDialog = true })
+                if (a.web.isNotBlank()) add(Act(Icons.Filled.OpenInBrowser, t("Web", "Web")) { web(a.web) })
+                add(Act(Icons.Filled.Share, t("Paylaş", "Share")) { ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, "${a.name} — " + (if (a.source == "STEAM") a.web else "https://play.google.com/store/apps/details?id=${a.pkg}")), null)) })
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                acts.forEach { c ->
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(2.dp)).background(Steam.wish).clickable(onClick = c.go).padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(c.icon, null, tint = Steam.link, modifier = Modifier.size(20.dp)); Spacer(Modifier.height(3.dp)); Text(c.label, color = Steam.link, fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Clip)
+                    }
                 }
-                if (!s.isInstalled(a)) Chip(Icons.Filled.VideogameAsset, if (a.pkg in s.libAdded) t("Kütüphanede ✓", "In library ✓") else t("Kütüphaneye ekle", "Add to library")) { s.toggleLibrary(a) }
-                if (s.isInstalled(a)) Chip(Icons.Filled.Delete, t("Kaldır", "Uninstall")) { s.uninstall(ctx, a.pkg) }
-                Chip(if (a.pkg in s.pins) Icons.Filled.Star else Icons.Filled.StarBorder, if (a.pkg in s.pins) t("Favori", "Pinned") else t("Favorile", "Pin")) { s.togglePin(a) }
-                Chip(Icons.Filled.Folder, t("Koleksiyona ekle", "Add to collection")) { colDialog = true }
-                if (a.web.isNotBlank()) Chip(Icons.Filled.OpenInBrowser, t("Web'de aç", "Open web")) { web(a.web) }
-                Chip(Icons.Filled.Share, t("Paylaş", "Share")) { ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, "${a.name} — " + (if (a.source == "STEAM") a.web else "https://play.google.com/store/apps/details?id=${a.pkg}")), null)) }
             }
             // ---- STEAMDB
             if (a.source == "STEAM") {

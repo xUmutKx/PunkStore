@@ -99,9 +99,11 @@ fun ProfileScreen(s: Store, onOpen: (String) -> Unit, onWishlist: () -> Unit, on
     var edit by remember { mutableStateOf(false) }
     val df = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     val inst = s.apps.count { s.isInstalled(it) }
-    val top = s.launches.entries.sortedByDescending { it.value }.take(5).mapNotNull { e -> s.byPkg(e.key)?.let { it to e.value } }
+    var showRemoved by remember { mutableStateOf(false) }
+    val top = s.launches.entries.sortedByDescending { it.value }.mapNotNull { e -> (s.byPkg(e.key) ?: s.resolve(e.key))?.takeIf { showRemoved || s.installed.containsKey(e.key) }?.let { it to e.value } }.take(5)
     val st = s.design.steam
     if (st) { SteamProfile(s, onOpen, onWishlist, onSettings, onAchievements, onSteam, onNav); return }
+    MaterialProfile(s, onOpen, onWishlist, onSettings, onAchievements, onSteam, onNav); return
     LazyColumn(Modifier.fillMaxSize().then(if (!st) Modifier.statusBarsPadding() else Modifier)) {
         item {
             Box(Modifier.fillMaxWidth().background(Brush.verticalGradient(coverPresets[s.cover.mod(coverPresets.size)] + MaterialTheme.colorScheme.background)).padding(16.dp)) {
@@ -247,7 +249,8 @@ private fun SteamProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -> U
     var edit by remember { mutableStateOf(false) }
     val df = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     val inst = s.apps.count { s.isInstalled(it) }
-    val top = s.launches.entries.sortedByDescending { it.value }.take(5).mapNotNull { e -> s.byPkg(e.key)?.let { it to e.value } }
+    var showRemoved by remember { mutableStateOf(false) }
+    val top = s.launches.entries.sortedByDescending { it.value }.mapNotNull { e -> (s.byPkg(e.key) ?: s.resolve(e.key))?.takeIf { showRemoved || s.installed.containsKey(e.key) }?.let { it to e.value } }.take(5)
     LazyColumn(Modifier.fillMaxSize().background(Steam.panel)) {
         item {
             SteamProfileHeader(s.userName, { Avatar(s, 88) }, t("Seviye ${s.level} · ${s.xp} XP · 🔥 ${s.streak}", "Level ${s.level} · ${s.xp} XP · 🔥 ${s.streak}"), t("Profili düzenle", "Edit profile"), null) { edit = true }
@@ -271,6 +274,7 @@ private fun SteamProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -> U
                 items(s.showcase.mapNotNull { s.resolve(it) }) { a -> Column(Modifier.width(150.dp).clickable { onOpen(a.pkg) }) { Capsule(a, Modifier.fillMaxWidth().height(86.dp), 32, Steam.corner); Text(a.name, Modifier.padding(top = 4.dp), fontSize = 12.sp, maxLines = 1, color = Color.White) } }
             } }
         }
+        item { Row(Modifier.fillMaxWidth().background(Steam.panel).clickable { showRemoved = !showRemoved }.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Text(t("Silinen uygulamaları da göster", "Include removed apps"), Modifier.weight(1f), color = Steam.dim, fontSize = 14.sp); SteamSwitch(showRemoved) { showRemoved = it } } }
         if (top.isNotEmpty()) {
             item { SteamSection(t("En çok kullandıkların", "Most used")) }
             items(top, key = { it.first.pkg }) { (a, n) ->
@@ -278,6 +282,69 @@ private fun SteamProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -> U
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+    if (edit) EditProfile(s) { edit = false }
+}
+
+/** Material temasında profil: Material 3 kartları, ListItem satırları ve Material ikonları. */
+@Composable
+private fun MaterialProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -> Unit, onSettings: () -> Unit, onAchievements: () -> Unit, onSteam: () -> Unit, onNav: (String) -> Unit) {
+    var edit by remember { mutableStateOf(false) }
+    var showRemoved by remember { mutableStateOf(false) }
+    val df = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    val inst = s.apps.count { s.isInstalled(it) }
+    val top = s.launches.entries.sortedByDescending { it.value }.mapNotNull { e -> (s.byPkg(e.key) ?: s.resolve(e.key))?.takeIf { showRemoved || s.installed.containsKey(e.key) }?.let { it to e.value } }.take(5)
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(s, 72); Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(s.userName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(t("Üyelik: ", "Member since ") + df.format(Date(s.joined)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(t("Seviye ${s.level} · ${s.xp} XP", "Level ${s.level} · ${s.xp} XP"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+                        LinearProgressIndicator({ s.levelProgress() }, Modifier.fillMaxWidth().padding(top = 4.dp))
+                    }
+                    IconButton(onSettings) { Icon(Icons.Filled.Settings, t("Ayarlar", "Settings")) }
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(Triple(Icons.Filled.Android, inst.toString(), t("Kurulu", "Installed")), Triple(Icons.Filled.Favorite, s.wishlist.size.toString(), t("İstek", "Wishlist")), Triple(Icons.Filled.Download, s.getCount.toString(), t("Yükleme", "Downloads"))).forEach { (ic, v, l) ->
+                    ElevatedCard(Modifier.weight(1f)) { Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(ic, null, tint = MaterialTheme.colorScheme.primary); Text(v, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(l, style = MaterialTheme.typography.labelSmall) } }
+                }
+            }
+        }
+        item { FilledTonalButton({ edit = true }, Modifier.fillMaxWidth()) { Icon(Icons.Filled.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(t("Profili düzenle", "Edit profile")) } }
+        item {
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column {
+                    @Composable fun Item(ic: ImageVector, title: String, sub: String? = null, f: () -> Unit) = ListItem({ Text(title) }, Modifier.clickable(onClick = f), supportingContent = sub?.let { { Text(it) } }, leadingContent = { Icon(ic, null) }, trailingContent = { Icon(Icons.Filled.ChevronRight, null) })
+                    Item(Icons.Filled.SportsEsports, t("Steam hesabı", "Steam account"), null, onSteam)
+                    Item(Icons.Filled.Favorite, t("İstek listesi", "Wishlist"), null, onWishlist)
+                    Item(Icons.Filled.BarChart, t("İstatistikler", "Statistics")) { onNav("stats") }
+                    Item(Icons.Filled.Folder, t("Koleksiyonlar", "Collections")) { onNav("collections") }
+                    Item(Icons.Filled.EmojiEvents, t("Rozetler ve başarımlar", "Badges & achievements"), "${s.achUnlocked.size}/${ACHIEVEMENTS.size}", onAchievements)
+                    Item(Icons.Filled.AccountCircle, t("Google hesabı", "Google account"), s.googleEmail ?: t("Bağlı değil (Ayarlar'dan giriş yap)", "Not signed in (use Settings)"), onSettings)
+                }
+            }
+        }
+        if (s.showcase.isNotEmpty()) {
+            item { Text(t("Vitrin", "Showcase"), style = MaterialTheme.typography.titleMedium) }
+            item { androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(s.showcase.mapNotNull { s.resolve(it) }) { a -> ElevatedCard(Modifier.width(150.dp).clickable { onOpen(a.pkg) }) { Column { Banner(a, Modifier.fillMaxWidth().height(86.dp), icon = 32, fade = false); Text(a.name, Modifier.padding(8.dp), maxLines = 1, style = MaterialTheme.typography.labelMedium) } } }
+            } }
+        }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(t("En çok kullandıkların", "Most used"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(t("Silinenler", "Removed"), style = MaterialTheme.typography.labelSmall); Switch(showRemoved, { showRemoved = it }, Modifier.padding(start = 6.dp))
+            }
+        }
+        items(top, key = { it.first.pkg }) { (a, n) ->
+            ListItem({ Text(a.name, maxLines = 1) }, Modifier.clickable { onOpen(a.pkg) }, supportingContent = { Text("$n ${t("açılış", "launches")}") }, leadingContent = { AppIcon(a, 40, 8) })
+        }
     }
     if (edit) EditProfile(s) { edit = false }
 }

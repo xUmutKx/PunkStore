@@ -34,7 +34,7 @@ object Installer {
     fun canInstall(c: Context) = c.packageManager.canRequestPackageInstalls()
 
     fun askPermission(c: Context) {
-        c.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${c.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        runCatching { c.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${c.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 
     fun install(c: Context, apk: File) = installMany(c, listOf(apk))
@@ -42,24 +42,29 @@ object Installer {
     /** Kurulum yöntemi: SESSION (PackageInstaller), NATIVE (sistem kurucusu), ROOT (su + pm). */
     fun installMany(c: Context, apks: List<File>, pkg: String? = null) {
         when (Cfg.method(c)) {
-            InstallMethod.ROOT -> installRoot(c, apks)
+            InstallMethod.ROOT -> {
+                // Root başarısız olursa kurulum elle (sistem kurucusu) devam eder; APK silinmez
+                try { installRoot(c, apks) } catch (e: Throwable) { sessionInstall(c, apks, pkg) }
+            }
             InstallMethod.NATIVE -> {
-                val apk = apks.first()
+                val apk = apks.firstOrNull() ?: return
                 val uri = androidx.core.content.FileProvider.getUriForFile(c, "com.punkstore.app.files", apk)
                 c.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION))
                 return
             }
-            else -> {
-                val pi = c.packageManager.packageInstaller
-                val id = pi.createSession(PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL))
-                pi.openSession(id).use { s ->
-                    apks.forEachIndexed { n, apk -> apk.inputStream().use { i -> s.openWrite("$n.apk", 0, apk.length()).use { o -> i.copyTo(o); s.fsync(o) } } }
-                    val pend = PendingIntent.getBroadcast(c, id, Intent(c, InstallReceiver::class.java).putExtra("pkg", pkg), PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                    s.commit(pend.intentSender)
-                }
-            }
+            else -> sessionInstall(c, apks, pkg)
         }
         // APK'lar indirme kuyruğu tarafından kurulum BAŞARILI olunca silinir (iptal/hata durumunda yeniden indirmeden tekrar denenebilsin)
+    }
+
+    private fun sessionInstall(c: Context, apks: List<File>, pkg: String?) {
+        val pi = c.packageManager.packageInstaller
+        val id = pi.createSession(PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL))
+        pi.openSession(id).use { s ->
+            apks.forEachIndexed { n, apk -> apk.inputStream().use { i -> s.openWrite("$n.apk", 0, apk.length()).use { o -> i.copyTo(o); s.fsync(o) } } }
+            val pend = PendingIntent.getBroadcast(c, id, Intent(c, InstallReceiver::class.java).putExtra("pkg", pkg), PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            s.commit(pend.intentSender)
+        }
     }
 
     // ---- ROOT ----

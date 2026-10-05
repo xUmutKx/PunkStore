@@ -27,6 +27,8 @@ object PlayRepo {
     private const val UA = "com.aurora.store-4.6.1-60"
     private val client get() = GpHttp.get()
     private var auth: AuthData? = null
+    /** Oturum açılırken oluşan, kullanıcıya gösterilecek not (örn. Google BadAuth) */
+    @Volatile var authNote: String? = null
 
     private fun deviceProps(c: Context): Properties = Properties().also { p ->
         // gplayapi'nin paketlediği cihaz profilleri (Pixel 9a)
@@ -60,8 +62,13 @@ object PlayRepo {
             if (AuthHelper.isValid(a)) { auth = a; return@withContext a }
         }
         val g = googleCreds(c)
-        val a = if (g != null) AuthHelper.using(client).build(g.first, g.second, AuthHelper.Token.AAS, false, deviceProps(c), Locale.getDefault())
-        else { val (email, token) = fetchDispenserToken(); AuthHelper.using(client).build(email, token, AuthHelper.Token.AUTH, true, deviceProps(c), Locale.getDefault()) }
+        fun anon(): AuthData { val (email, token) = fetchDispenserToken(); return AuthHelper.using(client).build(email, token, AuthHelper.Token.AUTH, true, deviceProps(c), Locale.getDefault()) }
+        val a = if (g != null) try { AuthHelper.using(client).build(g.first, g.second, AuthHelper.Token.AAS, false, deviceProps(c), Locale.getDefault()) } catch (e: Throwable) {
+            // Google belirteci reddedildi (BadAuth): kayıtlı hesabı sil, anonim oturumla devam et
+            File(c.filesDir, "play-google.txt").delete()
+            authNote = t("Google hesabı reddedildi (${e.message?.take(60) ?: "BadAuth"}); anonim oturumla devam ediliyor. Ayarlar'dan tekrar giriş yapabilirsin.", "Google rejected the account (${e.message?.take(60) ?: "BadAuth"}); continuing anonymously. You can sign in again from Settings.")
+            anon()
+        } else anon()
         runCatching { f.writeText(json.encodeToString(AuthData.serializer(), a)) }
         auth = a
         a
@@ -76,11 +83,11 @@ object PlayRepo {
     /** WebView'den gelen oauth_token'ı AAS belirtecine çevirir (Aurora Store ile aynı yöntem). */
     suspend fun googleLogin(c: Context, email: String, oauthToken: String) = withContext(Dispatchers.IO) {
         val body = okhttp3.FormBody.Builder()
-            .add("lang", Locale.getDefault().toString()).add("google_play_services_version", "223616055").add("sdk_version", "33")
+            .add("lang", Locale.getDefault().toString().replace("_", "-")).add("google_play_services_version", "19629032").add("sdk_version", android.os.Build.VERSION.SDK_INT.toString())
             .add("device_country", Locale.getDefault().country.lowercase()).add("Email", email).add("service", "ac2dm")
             .add("get_accountid", "1").add("ACCESSTOKEN", "1").add("callerPkg", "com.google.android.gms").add("add_account", "1")
             .add("Token", oauthToken).add("callerSig", "38918a453d07199354f8b19af05ec6562ced5788").build()
-        val txt = http.newCall(Request.Builder().url("https://android.googleapis.com/auth").header("User-Agent", "GoogleAuth/1.4").post(body).build()).execute().use { it.body!!.string() }
+        val txt = http.newCall(Request.Builder().url("https://android.googleapis.com/auth").header("User-Agent", "GoogleAuth/1.4").header("app", "com.google.android.gms").post(body).build()).execute().use { it.body!!.string() }
         val aas = txt.lines().firstOrNull { it.startsWith("Token=") }?.removePrefix("Token=") ?: error("Google: " + txt.lines().firstOrNull { it.startsWith("Error=") }.orEmpty())
         File(c.filesDir, "play-google.txt").writeText("$email\n$aas")
         reset(c); session(c)

@@ -27,11 +27,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AutoUpdate.apply(this)
+        SteamDbWeb.ctx = applicationContext
         if (android.os.Build.VERSION.SDK_INT >= 33) notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         setContent {
             PunkTheme(store.design, store.dark, store.amoled) {
                 val d = androidx.compose.ui.platform.LocalDensity.current
-                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, d.fontScale * store.fontScale)) { Root(store) }
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, d.fontScale * store.fontScale)) { androidx.compose.material3.ProvideTextStyle(androidx.compose.ui.text.TextStyle(fontWeight = if (store.boldText) androidx.compose.ui.text.font.FontWeight.SemiBold else null)) { Root(store) } }
             }
         }
     }
@@ -129,7 +131,7 @@ fun Root(s: Store) {
                         n.settings -> if (s.design.steam) SteamSettingsScreen(s, { settings = false }, { login = true }, { about = true }, { nav(it) }) else Column { SettingsBar { settings = false }; SettingsScreen(s, { login = true }, { about = true }, { nav(it) }) }
                         n.category != null -> CategoryScreen(s, n.category, { openPkg = it }) { category = null }
                         n.tab == Tab.STORE -> if (s.design.steam) SteamStore(s, { openPkg = it }, { category = it }, { nav(it) })
-                                            else MaterialHome(s, { openPkg = it }, { category = it })
+                                            else MaterialHome(s, { openPkg = it }, { category = it }) { nav("search") }
                         n.materialSearch -> SearchScreen(s) { openPkg = it }
                         n.tab == Tab.LIBRARY -> if (s.design.steam) SteamLibrary(s, { openPkg = it }, { nav(it) }) else LibraryScreen(s) { openPkg = it }
                         n.tab == Tab.UPDATES -> SteamUpdates(s, { openPkg = it }, { nav(it) })

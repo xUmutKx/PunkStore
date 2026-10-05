@@ -73,7 +73,7 @@ fun SteamHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit) 
             HorizontalPager(pager, contentPadding = PaddingValues(horizontal = 24.dp), pageSpacing = 10.dp) { i ->
                 val a = featured[i]
                 Box(Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(4.dp)).clickable { onOpen(a.pkg) }) {
-                    AsyncImage(a.screenshots.first(), a.name, Modifier.fillMaxSize().background(Steam.card), contentScale = ContentScale.Crop)
+                    AsyncImage(a.screenshots.firstOrNull() ?: "", a.name, Modifier.fillMaxSize().background(Steam.card), contentScale = ContentScale.Crop)
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE0E141B)))))
                     Row(Modifier.align(Alignment.BottomStart).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         AppIcon(a, 44, 4); Spacer(Modifier.width(10.dp))
@@ -114,13 +114,14 @@ fun SteamHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit) 
 
 // ---------------- MATERIAL ANA SAYFA ----------------
 @Composable
-fun MaterialHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit) {
+fun MaterialHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit, onSearch: () -> Unit = {}) {
     val newest = remember(s.apps) { s.newest.take(20) }
     val recent = remember(s.apps) { s.recentlyUpdated.take(30) }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding()) {
         item {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Punk Store", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("Punk Store", style = MaterialTheme.typography.headlineMedium, fontFamily = LogoFont, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                IconButton(onSearch) { Icon(Icons.Filled.Search, t("Ara", "Search")) }
                 if (s.loading) CircularProgressIndicator(Modifier.size(24.dp)) else IconButton({ s.refresh() }) { Icon(Icons.Filled.Refresh, t("Yenile", "Refresh")) }
             }
         }
@@ -133,7 +134,7 @@ fun MaterialHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Uni
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(newest) { a ->
                     ElevatedCard(Modifier.width(150.dp).clickable { onOpen(a.pkg) }) {
-                        Column { Capsule(a, Modifier.fillMaxWidth().height(80.dp), 36, 0)
+                        Column { Banner(a, Modifier.fillMaxWidth().height(90.dp), icon = 36, fade = false)
                             Text(a.name, Modifier.padding(8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp) }
                     }
                 }
@@ -148,10 +149,11 @@ fun MaterialHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Uni
 @Composable
 fun AppCarousel(s: Store, list: List<AppItem>, onOpen: (String) -> Unit) {
     val st = s.design.steam
+    if (st) { LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(list, key = { it.pkg }) { a -> SteamCard(s, a, Modifier.width(250.dp), onOpen) } }; return }
     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items(list, key = { it.pkg }) { a ->
             Column(Modifier.width(150.dp).clip(RoundedCornerShape(if (st) 3.dp else 16.dp)).background(if (st) Steam.card else MaterialTheme.colorScheme.surfaceContainerHigh).clickable { onOpen(a.pkg) }) {
-                Capsule(a, Modifier.fillMaxWidth().height(86.dp), 36, 0)
+                Banner(a, Modifier.fillMaxWidth().height(90.dp), icon = 36, fade = false)
                 Text(a.name, Modifier.padding(8.dp, 6.dp, 8.dp, 0.dp), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (st) Color.White else MaterialTheme.colorScheme.onSurface)
                 if (a.discount > 0 || a.source == "STEAM") PriceTag(a, Modifier.padding(8.dp, 2.dp, 8.dp, 8.dp))
                 else Text(if (a.rating > 0) "★ %.1f".format(a.rating) else if (a.price.isBlank()) t("ÜCRETSİZ", "FREE") else a.price, Modifier.padding(8.dp, 2.dp, 8.dp, 8.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (a.rating > 0) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFBEEE11))

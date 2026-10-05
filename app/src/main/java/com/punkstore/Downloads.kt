@@ -61,6 +61,7 @@ class DlFile(val url: String, val name: String, val size: Long, val sha256: Stri
 class DownloadQueue(private val s: Store) {
     val tasks = mutableStateMapOf<String, DlTask>()
     private val jobs = mutableMapOf<String, Job>()
+    private val cancelled = mutableSetOf<String>()
     private val sem = Semaphore(2)
     private val ctx: Context get() = s.getApplication()
     private val prefs get() = ctx.getSharedPreferences("punk", Context.MODE_PRIVATE)
@@ -74,15 +75,16 @@ class DownloadQueue(private val s: Store) {
         tasks[t.pkg] = t
         if (t.active) s.busy[t.pkg] = if (t.state == DlState.INSTALLING || t.state == DlState.VERIFYING) -1f else t.progress else s.busy.remove(t.pkg)
     }
-    private fun upd(pkg: String, f: (DlTask) -> DlTask) { tasks[pkg]?.let { put(f(it)) } }
+    private fun upd(pkg: String, f: (DlTask) -> DlTask) { if (synchronized(cancelled) { pkg in cancelled }) return; tasks[pkg]?.let { put(f(it)) } }
 
     /** Kuyruğa al (zaten sürüyorsa bir şey yapmaz; duraklatılmış / hatalıysa devam ettirir). */
     fun enqueue(a: AppItem) {
         val cur = tasks[a.pkg]
         if (cur != null && cur.active) return
+        synchronized(cancelled) { cancelled.remove(a.pkg) }
         put(DlTask(a.pkg, a.name, a.icon, a.source, DlState.QUEUED, cur?.bytes ?: 0, cur?.total ?: a.apkSize))
         persist()
-        DownloadService.start(ctx)
+        runCatching { DownloadService.start(ctx) }
         s.viewModelScope.launch { DownloadService.loadIcon(ctx, a) }
         jobs[a.pkg] = s.viewModelScope.launch {
             try {
@@ -90,6 +92,7 @@ class DownloadQueue(private val s: Store) {
             } catch (e: CancellationException) {
                 // duraklatma / iptal: durum pause()/cancel() içinde ayarlandı
             } catch (e: Throwable) {
+                if (synchronized(cancelled) { cancelled.remove(a.pkg) }) return@launch
                 val msg = friendly(e)
                 upd(a.pkg) { it.copy(state = DlState.FAILED, error = msg, speed = 0) }
                 s.report("${a.name}: $msg")
@@ -112,9 +115,15 @@ class DownloadQueue(private val s: Store) {
 
     /** İptal: işi durdurur, yarım dosyaları siler, listeden kaldırır. */
     fun cancel(pkg: String) {
-        jobs[pkg]?.cancel(); tasks.remove(pkg); s.busy.remove(pkg); persist()
-        File(ctx.cacheDir, "apk/$pkg").deleteRecursively()
-        DownloadService.clear(ctx, pkg)
+        synchronized(cancelled) { cancelled.add(pkg) }
+        runCatching { jobs[pkg]?.cancel(); tasks.remove(pkg); s.busy.remove(pkg); persist() }
+        // dosya silme + bildirim temizliği ana iş parçacığını tutmasın, hata verirse uygulamayı düşürmesin
+        s.viewModelScope.launch(Dispatchers.IO) {
+            delay(300) // indirme iş parçacığı bağlantıyı bıraksın
+            runCatching { File(ctx.cacheDir, "apk/$pkg").deleteRecursively() }
+            synchronized(cancelled) { cancelled.remove(pkg) }
+        }
+        runCatching { DownloadService.clear(ctx, pkg) }
         if (activeCount == 0) DownloadService.stop(ctx)
     }
 
@@ -161,6 +170,7 @@ class DownloadQueue(private val s: Store) {
             }
         }
 
+        check(abiOk(out)) { noAbi() }
         upd(a.pkg) { it.copy(state = DlState.INSTALLING) }
         DownloadService.installing(ctx, a.pkg, a.name)
         val wait = InstallBus.expect(a.pkg)
@@ -202,7 +212,7 @@ class DownloadQueue(private val s: Store) {
         (prefs.getString("dlq", "") ?: "").split(',').filter { it.isNotBlank() && it !in tasks }.forEach { p ->
             val a = s.resolve(p) ?: return@forEach
             val part = File(ctx.cacheDir, "apk/$p").walk().filter { it.isFile }.sumOf { it.length() }
-            put(DlTask(p, a.name, a.icon, a.source, DlState.PAUSED, part, a.apkSize))
+            if (part > 0) put(DlTask(p, a.name, a.icon, a.source, DlState.PAUSED, part, a.apkSize))
         }
     }
 
@@ -213,7 +223,18 @@ class DownloadQueue(private val s: Store) {
             is java.net.UnknownHostException -> t("İnternet bağlantısı yok", "No internet connection")
             is java.net.SocketTimeoutException -> t("Bağlantı zaman aşımına uğradı", "Connection timed out")
             is IOException -> t("Ağ hatası: ", "Network error: ") + (e.message ?: e.javaClass.simpleName)
-            else -> e.message ?: e.javaClass.simpleName
+            else -> e.message?.let { m ->
+                if (m.contains("NO_MATCHING_ABI", true) || m.contains("-113")) noAbi() else m
+            } ?: e.javaClass.simpleName
+        }
+
+        fun noAbi(): String = t("Bu uygulamanın cihazının işlemcisi (${android.os.Build.SUPPORTED_ABIS.firstOrNull()}) için derlemesi yok", "This app has no build for your device's CPU (${android.os.Build.SUPPORTED_ABIS.firstOrNull()})")
+
+        /** APK'ların içindeki lib/<abi> klasörlerine bakar; yerel kütüphane var ama cihaz ABI'si yoksa false. */
+        fun abiOk(files: List<File>): Boolean {
+            val found = mutableSetOf<String>()
+            files.forEach { f -> runCatching { java.util.zip.ZipFile(f).use { z -> z.entries().asSequence().forEach { en -> if (en.name.startsWith("lib/") && en.name.count { it == '/' } >= 2) found.add(en.name.split('/')[1]) } } } }
+            return found.isEmpty() || found.any { it in android.os.Build.SUPPORTED_ABIS }
         }
 
         /** sha256 hex ya da base64 (Play) olabilir; tanınmayan biçimde doğrulama atlanır. */

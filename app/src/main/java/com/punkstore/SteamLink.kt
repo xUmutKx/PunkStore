@@ -73,10 +73,13 @@ object SteamLink {
             note = t("Steam tam oyun listesini yalnızca giriş yapınca gösteriyor. 'Steam ile giriş yap' ile tüm oyunların gelir; şimdilik profilde görünen oyunlar listelendi.",
                      "Steam only shows the full games list when signed in. Use 'Sign in with Steam' to get all games; showing games visible on the profile for now."); emptyList()
         } catch (e: Exception) { note = t("Oyun listesi okunamadı: ", "Could not read games list: ") + (e.message ?: ""); emptyList() }
-        val games = full.ifEmpty { profileGames(xml, html) }
+        // Giriş yoksa / liste gizliyse: SteamDB'den (WebView ile) kullanıcının oyunlarını çek
+        val fromDb: List<Game> = if (full.isEmpty() && runCatching { SteamDbWeb.ctx }.isSuccess) runCatching { SteamDbWeb.games(id) }.getOrDefault(emptyList()) else emptyList()
+        if (fromDb.isNotEmpty()) note = t("Oyun listesi SteamDB'den alındı.", "Games list came from SteamDB.")
+        val games = full.ifEmpty { fromDb }.ifEmpty { profileGames(xml, html) }
         if (full.isEmpty() && games.isEmpty() && note == null) note = t("Oyun listesi boş ya da 'Oyun ayrıntıları' gizli (Steam > Profil > Gizlilik ayarları).", "Games list is empty or 'Game details' is private (Steam > Profile > Privacy settings).")
         Profile(id, tag(xml, "steamID").ifBlank { id }, tag(xml, "avatarFull"), level, games.sortedByDescending { it.minutes },
-            partial = full.isEmpty(), gameCount = maxOf(gameCount, games.size), friends = friends, badges = badges,
+            partial = full.isEmpty() && fromDb.isEmpty(), gameCount = maxOf(gameCount, games.size), friends = friends, badges = badges,
             headline = tag(xml, "headline"), since = tag(xml, "memberSince"), online = tag(xml, "stateMessage").replace(Regex("<[^>]+>"), " ").trim(), note = note)
     }
 

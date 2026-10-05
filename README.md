@@ -24,11 +24,13 @@ It's a fan project I build for fun. It has nothing to do with Valve. Licensed un
 
 ## Screenshots
 
-<p>
-<img src="docs/screenshots/store.png" width="200"> <img src="docs/screenshots/app-page.png" width="200"> <img src="docs/screenshots/search.png" width="200">
+<p align="center"><img src="docs/screenshots/splash-crop.png" width="260"></p>
+
+<p align="center">
+<img src="docs/screenshots/store.png" width="300"> <img src="docs/screenshots/app-page.png" width="300">
 </p>
-<p>
-<img src="docs/screenshots/profile.png" width="200"> <img src="docs/screenshots/splash.png" width="200">
+<p align="center">
+<img src="docs/screenshots/search.png" width="300"> <img src="docs/screenshots/profile.png" width="300">
 </p>
 
 ## Themes

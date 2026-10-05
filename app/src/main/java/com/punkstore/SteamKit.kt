@@ -139,7 +139,7 @@ fun SteamProfileHeader(name: String, avatar: @Composable () -> Unit, sub: String
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 20.dp, top = 16.dp, bottom = 22.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) Icon(Icons.AutoMirrored.Filled.ArrowBackIos, t("Geri", "Back"), tint = W, modifier = Modifier.clip(RoundedCornerShape(30.dp)).pressScale(onBack).padding(12.dp).size(22.dp))
             else Spacer(Modifier.width(16.dp))
-            Box(Modifier.size(96.dp).border(2.dp, Color(0xFFE58BE8), RoundedCornerShape(2.dp)).padding(2.dp)) { avatar() }
+            Box(Modifier.size(96.dp)) { avatar() }
             Column(Modifier.weight(1f).padding(start = 18.dp)) {
                 Text(name, color = W, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!sub.isNullOrBlank()) Text(sub, color = Color(0xFFCFC2D0), fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)

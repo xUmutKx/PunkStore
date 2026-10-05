@@ -62,7 +62,7 @@ fun SteamLibrary(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
     val collapsed = remember { mutableStateListOf<String>() }
     var colFor by remember { mutableStateOf<AppItem?>(null) }
 
-    val all = s.libApps
+    val all = remember(s.libApps) { s.libApps.distinctBy { it.pkg } }
     val filters = buildList {
         add(LibFilter("all", t("Tümü", "All")) { true })
         add(LibFilter("installed", t("Kurulu", "Installed")) { s.isInstalled(it) })
@@ -113,7 +113,8 @@ fun SteamLibrary(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp, 8.dp, 12.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // ---- son oynanan vitrini
             if (filter == "all" && q.isBlank() && recent.isNotEmpty()) {
-                item(key = "hero") { LibHero(s, recent.first()) { open(it) } }
+                val hero = recent.first()
+                item(key = "hero") { LibHero(s, hero) { open(it) } }
                 if (recent.size > 1) item(key = "recent") {
                     Column {
                         Text(t("SON OYNANANLAR", "RECENT GAMES"), Modifier.padding(vertical = 6.dp), color = Steam.dim, fontSize = 13.sp, letterSpacing = 1.sp)
@@ -172,11 +173,12 @@ fun SteamLibrary(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
                     if (filter != "all") TextButton({ filter = "all"; q = "" }) { Text(t("Filtreyi temizle", "Clear filter")) }
                 }
             }
-            sections.forEach { (title, apps) ->
+            sections.forEach { (title, apps0) ->
+                val apps = apps0.distinctBy { it.pkg }
                 val open = title !in collapsed
                 if (sections.size > 1 || filter != "all") item(key = "h:$title") {
                     val rot by animateFloatAsState(if (open) 0f else -90f, label = "rot")
-                    Row(Modifier.animateItem().fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).clickable { if (open) collapsed.add(title) else collapsed.remove(title) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).clickable { if (open) { if (title !in collapsed) collapsed.add(title) } else collapsed.remove(title) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.KeyboardArrowDown, null, tint = Steam.dim, modifier = Modifier.rotate(rot))
                         Text("$title (${apps.size})", color = W, fontSize = 14.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
                         Box(Modifier.weight(1f).padding(start = 10.dp).height(1.dp).background(Steam.edgeLo))
@@ -184,11 +186,11 @@ fun SteamLibrary(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
                 }
                 if (open) {
                     if (grid) items(apps.chunked(3), key = { r -> "g:$title:" + r.joinToString { it.pkg } }) { row ->
-                        Row(Modifier.animateItem(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(Modifier, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             row.forEach { a -> LibCell(s, a, Modifier.weight(1f), { open(a) }) { colFor = it } }
-                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                            repeat((3 - row.size).coerceAtLeast(0)) { Spacer(Modifier.weight(1f)) }
                         }
-                    } else items(apps, key = { "l:$title:" + it.pkg }) { a -> LibRow(s, a, Modifier.animateItem(), { open(a) }) { colFor = it } }
+                    } else items(apps, key = { "l:$title:" + it.pkg }) { a -> LibRow(s, a, Modifier, { open(a) }) { colFor = it } }
                 }
             }
         }

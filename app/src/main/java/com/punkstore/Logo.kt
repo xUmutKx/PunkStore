@@ -27,8 +27,11 @@ fun PunkLogo(size: Float = 36f, modifier: Modifier = Modifier, color: Color = Co
     } else Modifier).padding(pad), horizontalAlignment = align) {
         Row(verticalAlignment = Alignment.Bottom) {
             if (showSteam) Text("(Steam)", fontFamily = LogoFont, fontSize = (size * .42f).sp, color = accent.copy(alpha = .75f), modifier = Modifier.padding(bottom = (size * .08f).dp))
-            Text("Punk", fontFamily = LogoFont, fontSize = size.sp, color = color, lineHeight = size.sp)
+            Box { Text("Punk", Modifier.offset(x = (size * .035f).dp), fontFamily = LogoFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, fontSize = size.sp, color = color, lineHeight = size.sp)
+            Text("Punk", fontFamily = LogoFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, fontSize = size.sp, color = color, lineHeight = size.sp)
+            }
         }
-        Text("STORE", fontFamily = LogoFont, fontSize = (size * .5f).sp, color = accent, letterSpacing = (size * .22f).sp, lineHeight = (size * .5f).sp, modifier = Modifier.padding(top = (size * .04f).dp))
+        Box { Text("STORE", Modifier.offset(x = (size * .02f).dp).padding(top = (size * .04f).dp), fontFamily = LogoFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, fontSize = (size * .5f).sp, color = accent, letterSpacing = (size * .22f).sp, lineHeight = (size * .5f).sp)
+        Text("STORE", fontFamily = LogoFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Black, fontSize = (size * .5f).sp, color = accent, letterSpacing = (size * .22f).sp, lineHeight = (size * .5f).sp, modifier = Modifier.padding(top = (size * .04f).dp)) }
     }
 }
