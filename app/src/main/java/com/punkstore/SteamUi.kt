@@ -74,9 +74,9 @@ fun Banner(a: AppItem, modifier: Modifier = Modifier, icon: Int = 0, fade: Boole
 fun PriceTag(a: AppItem, modifier: Modifier = Modifier) {
     val free = a.price.isBlank() && a.discount == 0
     val disc = a.discount > 0
-    Row(modifier.clip(RoundedCornerShape(2.dp)).background(Color(0xE60E141B)), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xE60E141B)), verticalAlignment = Alignment.CenterVertically) {
         if (free || disc) Text(if (disc) "-${a.discount}%" else "-100%", Modifier.background(Color(0xFFA4D007)).padding(horizontal = 6.dp, vertical = 4.dp), color = Color(0xFF254007), fontWeight = FontWeight.Black, fontSize = 13.sp)
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 2.dp)) {
+        Column(Modifier.padding(start = 8.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)) {
             if (disc && a.origPrice.isNotBlank()) Text(a.origPrice, color = Color(0xFF738895), fontSize = 10.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough, lineHeight = 11.sp)
             Text(if (free) t("ÜCRETSİZ", "FREE") else a.price, color = W, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         }
@@ -192,13 +192,17 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
             // Dokunulabilir afiş: parmağı takip eden ışık, basınca renk kayar, dişli döner; dokununca günün uygulaması
             var touch by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
             val down = touch != null
-            val sc by androidx.compose.animation.core.animateFloatAsState(if (down) .985f else 1f, androidx.compose.animation.core.spring(.4f, 400f), label = "hs")
+            var hue by remember { mutableIntStateOf(0) }
+            val slimeCols = listOf(Color(0xFF3AA6FF), Color(0xFF5BE37A), Color(0xFFFF4FA3), Color(0xFFFFD23A), Color(0xFFA855F7))
+            val tintC by androidx.compose.animation.animateColorAsState(slimeCols[hue % slimeCols.size], androidx.compose.animation.core.tween(350), label = "ht")
+            val sc by androidx.compose.animation.core.animateFloatAsState(if (down) 1.012f else 1f, androidx.compose.animation.core.spring(.28f, 350f), label = "hs")
+            val sy by androidx.compose.animation.core.animateFloatAsState(if (down) .975f else 1f, androidx.compose.animation.core.spring(.28f, 350f), label = "hsy")
             val rot by androidx.compose.animation.core.animateFloatAsState(if (down) 70f else 0f, androidx.compose.animation.core.spring(.35f, 120f), label = "hr")
             val warm by androidx.compose.animation.core.animateFloatAsState(if (down) 1f else 0f, androidx.compose.animation.core.tween(400), label = "hw")
-            Box(Modifier.fillMaxWidth().height(150.dp).graphicsLayer { scaleX = sc; scaleY = sc }.background(Brush.linearGradient(Steam.hero))
-                .drawBehind { touch?.let { o -> drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = .35f), Color.Transparent), o, 260f), 260f, o) }
-                    drawRect(Color(0xFF3AA6FF).copy(alpha = .28f * warm)) }
-                .pointerInput(Unit) { detectTapGestures(onPress = { o -> touch = o; tryAwaitRelease(); touch = null }, onTap = { onNav("daily") }) }
+            Box(Modifier.fillMaxWidth().height(150.dp).graphicsLayer { scaleX = sc; scaleY = sy }.background(Brush.linearGradient(Steam.hero))
+                .drawBehind { touch?.let { o -> drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = .22f), Color.Transparent), o, 260f), 260f, o) }
+                    drawRect(tintC.copy(alpha = .22f * warm)) }
+                .pointerInput(Unit) { detectTapGestures(onPress = { o -> touch = o; hue++; tryAwaitRelease(); touch = null }, onTap = {}) }
                 .pointerInput(Unit) { awaitPointerEventScope { while (true) { val e = awaitPointerEvent(); if (touch != null) e.changes.firstOrNull()?.let { touch = it.position } } } }) {
                 Text("PUNK\nSTORE", Modifier.align(Alignment.CenterStart).padding(start = 20.dp), color = W, fontSize = 40.sp, lineHeight = 40.sp, fontWeight = FontWeight.Black)
                 Text(t("${s.apps.size} uygulama · F-Droid + Google Play", "${s.apps.size} apps · F-Droid + Google Play"), Modifier.align(Alignment.BottomStart).padding(20.dp), color = Color(0xFFFFE9C8), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
@@ -361,7 +365,7 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
             }
             Spacer(Modifier.height(20.dp))
             // "Satın al" paneli = Yükle
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Brush.verticalGradient(Steam.buy)).gloss().padding(18.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(18.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
                     Text((if (a.source == "STEAM") t("Steam'de: ", "On Steam: ") else t("Yükle: ", "Get ")) + a.name, Modifier.weight(1f), color = W, fontSize = 22.sp, lineHeight = 27.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

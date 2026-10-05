@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26
+- The install button is a plain flat green again, and the panel behind it is a flat Steam box instead of a glossy gradient.
+- The corner of the discount box next to it was cut off. Fixed.
+- The PUNK STORE banner on the home page no longer opens anything. It just reacts to touch: a light follows your finger, it squishes a little, and the colour changes on every press.
+
 ## 0.25
 - The profile page in the Steam themes now follows the Steam app's "You" page: maroon header with a square framed avatar, three stat boxes, a big blue button and plain "My content" rows.
 - The big PUNK STORE banner on the home page is touchable: a light follows your finger, the colour shifts while you hold it, the gear spins, and a tap opens the app of the day.

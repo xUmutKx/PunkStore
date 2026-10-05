@@ -129,15 +129,18 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
             inst && !upd -> Brush.horizontalGradient(listOf(Steam.panel2, Color(0xFF3D6E8E)))
             else -> Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB))
         }
+        val shape = RoundedCornerShape(4.dp)
         val base = when {
-            failed -> Color(0xFFD1582B)
-            task != null && st != DlState.DONE -> Color(0xFF4A6074)
-            inst && !upd -> Color(0xFF3D86B8)
-            else -> Color(0xFF5CB82A)
+            failed -> Color(0xFFC4501F)
+            task != null && st != DlState.DONE -> Color(0xFF3B4A58)
+            inst && !upd -> Color(0xFF2F6F9F)
+            else -> Color(0xFF5BA02B)
         }
-        val fill = if (prog > 0f) prog else 0f
         Box(
-            modifier.liquidGlass(base, onClick, fill = fill)
+            modifier.clip(shape).background(base).drawBehind {
+                if (prog > 0f) drawRect(Color(0xFF5BA02B), size = androidx.compose.ui.geometry.Size(size.width * prog, size.height),
+                    alpha = if (st == DlState.VERIFYING || st == DlState.INSTALLING) pulse.value else 1f)
+            }.pressScale(onClick)
                 .padding(horizontal = if (compact) 14.dp else 22.dp, vertical = if (compact) 8.dp else 12.dp),
             contentAlignment = Alignment.Center,
         ) {
