@@ -75,7 +75,7 @@ class Store(app: Application) : AndroidViewModel(app) {
         AppItem(p, f[0], f.getOrElse(2) { "" }, icon = f.getOrNull(1)?.ifEmpty { null }, banner = f.getOrElse(3) { "" }, source = f.getOrElse(4) { "PLAY" }, price = f.getOrElse(5) { "" }, discount = f.getOrElse(6) { "0" }.toIntOrNull() ?: 0, web = f.getOrElse(7) { "" })
     }
     /** Kütüphane: elle eklenenler + katalogdaki kurulu uygulamalar + katalog dışı kurulu uygulamalar (Cihaz). */
-    val libApps: List<AppItem> get() = (libAdded.mapNotNull { resolve(it) } + apps.filter { isInstalled(it) && it.pkg !in libAdded } + localApps).distinctBy { it.pkg }
+    val libApps: List<AppItem> get() = (libAdded.mapNotNull { resolve(it) } + apps.filter { isInstalled(it) && it.pkg !in libAdded } + localApps + steamOwned).distinctBy { it.pkg }
 
     fun isWished(a: AppItem) = a.pkg in wishlist
     fun toggleWish(a: AppItem) {
@@ -286,6 +286,46 @@ class Store(app: Application) : AndroidViewModel(app) {
     var steamId by mutableStateOf(prefs.getString("steamId", "") ?: ""); private set
     fun saveSteam(key: String, who: String, id: String) { steamKey = key; steamWho = who; steamId = id; prefs.edit().putString("steamKey", key).putString("steamWho", who).putString("steamId", id).apply() }
 
+    /** Steam ile giriş (WebView) çerezleri: tam oyun listesi + başarımlar için */
+    var steamLoggedIn by mutableStateOf(false); private set
+    fun saveSteamCookie(c: String) {
+        SteamLink.cookie = c; steamLoggedIn = SteamLink.loggedIn
+        prefs.edit().putString("steamCookie", c).apply()
+    }
+    /** Son yüklenen Steam profili (ekranlar arasında korunur) */
+    var steamProfile by mutableStateOf<SteamLink.Profile?>(null)
+    var steamLoading by mutableStateOf(false); private set
+    var steamAccErr by mutableStateOf<String?>(null)
+    fun loadSteamProfile(who: String = steamWho) {
+        if (steamLoading) return
+        steamLoading = true; steamAccErr = null
+        viewModelScope.launch {
+            runCatching { SteamLink.load(who.trim(), if (I18n.isTr) "turkish" else "english") }
+                .onSuccess { p -> steamProfile = p; saveSteam("", who.trim(), p.id); if (p.games.isNotEmpty() && (!p.partial || ownedGames.isEmpty())) saveOwned(p.games) }
+                .onFailure { steamAccErr = it.message ?: it.javaClass.simpleName }
+            steamLoading = false
+        }
+    }
+    fun steamLogout() { saveSteamCookie(""); android.webkit.CookieManager.getInstance().removeAllCookies(null); steamProfile = null; saveSteam("", "", ""); saveOwned(emptyList()) }
+
+    /** Sahip olunan Steam oyunları (diskte saklanır) -> kütüphanede "Steam" olarak görünür */
+    var ownedGames by mutableStateOf<List<SteamLink.Game>>(emptyList()); private set
+    private val ownedFile get() = java.io.File(getApplication<Application>().filesDir, "steam_games.tsv")
+    private fun saveOwned(l: List<SteamLink.Game>) {
+        ownedGames = l
+        runCatching { ownedFile.writeText(l.joinToString("\n") { "${it.appId}\t${it.minutes}\t${it.name.replace('\t', ' ').replace('\n', ' ')}" }) }
+    }
+    private fun loadOwned() = runCatching {
+        ownedFile.takeIf { it.exists() }?.readLines()?.mapNotNull { ln -> ln.split('\t', limit = 3).takeIf { it.size == 3 }?.let { SteamLink.Game(it[0].toLong(), it[2], it[1].toIntOrNull() ?: 0) } }.orEmpty()
+    }.getOrDefault(emptyList())
+    val steamOwned: List<AppItem> by derivedStateOf {
+        ownedGames.map { g ->
+            steamMap["steam:${g.appId}"]?.copy(extra = (steamMap["steam:${g.appId}"]?.extra.orEmpty()) + ("minutes" to "${g.minutes}"))
+                ?: AppItem("steam:${g.appId}", g.name, source = "STEAM", banner = g.capsule, icon = "https://cdn.cloudflare.steamstatic.com/steam/apps/${g.appId}/capsule_231x87.jpg",
+                    web = "https://store.steampowered.com/app/${g.appId}/", categories = listOf("Game"), extra = mapOf("minutes" to "${g.minutes}", "header" to g.header))
+        }
+    }
+
     // Başarımlar
     val achUnlocked = mutableStateListOf<String>().apply { addAll((prefs.getString("ach", "") ?: "").split(',').filter { it.isNotBlank() }) }
     val achTime = mutableMapOf<String, Long>().apply { (prefs.getString("achT", "") ?: "").split(',').filter { it.contains(':') }.forEach { put(it.substringBefore(':'), it.substringAfter(':').toLongOrNull() ?: 0L) } }
@@ -346,6 +386,8 @@ class Store(app: Application) : AndroidViewModel(app) {
         loadSteamStore()
         checkUpdates()
         dl.restore()
+        SteamLink.cookie = prefs.getString("steamCookie", "") ?: ""; steamLoggedIn = SteamLink.loggedIn
+        ownedGames = loadOwned()
         run { val today = System.currentTimeMillis() / 86400000L; val last = prefs.getLong("lastDay", 0L); var st = prefs.getInt("streak", 0)
             if (today != last) { st = if (today == last + 1) st + 1 else 1; prefs.edit().putLong("lastDay", today).putInt("streak", st).apply() }; streak = st }
     }
@@ -455,7 +497,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     fun hasUpdate(a: AppItem) = a.pkg !in ignored && installed[a.pkg]?.let { it < a.versionCode } == true
     fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg]
     /** Bilinen her kaynaktan (katalog, kayıtlı, cihaz) */
-    fun anyPkg(pkg: String) = byPkg(pkg) ?: resolve(pkg) ?: localApps.firstOrNull { it.pkg == pkg }
+    fun anyPkg(pkg: String) = byPkg(pkg) ?: resolve(pkg) ?: localApps.firstOrNull { it.pkg == pkg } ?: steamOwned.firstOrNull { it.pkg == pkg }
 
     /** İndir + kur: kuyruğa alır (devam ettirme, yeniden deneme, doğrulama Downloads.kt'de). */
     fun getOrUpdate(a: AppItem, ctx: Context) {

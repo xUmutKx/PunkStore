@@ -2,41 +2,50 @@
 
 # Punk Store
 
-F-Droid + Google Play (Aurora tarzı anonim/Google girişli) + Steam mağazası tek Android uygulamasında. Steam mobil arayüzünden esinlenmiştir (hayran çalışması, Valve ile bağlantısı yoktur). GPL-3.0.
+Telefonda uygulama ararken F-Droid'e, Play Store'a ve Steam'e ayrı ayrı girmekten sıkıldım, hepsini tek yerde toplayan bir mağaza yazdım. Görünüşü Steam'in mobil uygulamasından geliyor, çünkü o arayüzü seviyorum.
 
-- Paket: `com.punkstore.app` · Kotlin + Jetpack Compose · minSdk 26
-- Derleme: `export PATH=/root/tools/gradle-8.9/bin:$PATH; gradle assembleRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease --offline --no-daemon`
-- Çıktı: `app/build/outputs/apk/release/app-release.apk` (debug anahtarıyla imzalı)
+Valve ile bir bağlantısı yok, kendi keyfime yaptığım bir hayran projesi. Lisansı GPL-3.0.
 
-## Ekran görüntüleri
-<!-- docs/screenshots/ klasörüne eklenen görüntüler -->
-_Yakında: cihazdan alınan ekran görüntüleri `docs/screenshots/` klasörüne eklenecek._
+## Neler var
 
-## İndirme mantığı
-Kuyruk (aynı anda 2) · `.part` dosyası + HTTP `Range` ile kaldığı yerden devam · duraklat / sürdür / iptal (uygulamadan ve bildirimden) · ağ hatasında 1-2-4-8 sn bekleyerek yeniden deneme · boş alan denetimi · boyut + SHA-256 doğrulaması · PackageInstaller sonucunun okunması · yarım indirmeler uygulama kapansa da kaybolmaz.
+**Üç kaynak, tek arama.** F-Droid'deki açık kaynak uygulamalar, Google Play (Aurora Store'daki gibi anonim ya da kendi Google hesabınla) ve Steam mağazası aynı yerde. Yazdıkça arıyor, en alakalı sonuç en üstte çıkıyor.
 
-## Ekranlar
-| Sekme | İçerik |
-|---|---|
-| Mağaza | Öne çıkanlar, Steam bölümleri (indirimdekiler/çok satanlar/yeni/yakında), Play listeleri, kategoriler, yeni çıkanlar, kısayollar |
-| Keşfet | Tinder tarzı kartlar (sağa = beğen → istek listesi, sola = geç); Hepsi/Android/Steam/Oyunlar/F-Droid/Play/kategori sekmeleri; kart görselleri dokununca değişir; zevk puanı |
-| Kütüphane | Steam gibi: son oynanan kartı + şerit, sayılı filtre çipleri, açılır-kapanır gruplar, ızgara/liste, 5 sıralama, uzun basma menüsü, cihazdaki diğer uygulamalar |
-| Güncellemeler | Denetle, tümünü güncelle, yoksay, Punk Store kendi güncellemesi; İndirmeler/Depolama/Temizlik/Kurulu bilgisi kısayolları |
-| Profil | Seviye/XP, kapak teması, fotoğraf, durum, vitrin, başarım özeti, istatistikler, Steam hesabı |
-| Ayarlar | Tasarım (Steam modern / 2013 / 2006 / Material You), dil, kurulum yöntemi (oturum/sistem/root), indirme, güncelleme, Google girişi, dispenser, yedek |
+**Steam gibi kütüphane.** Son oynadığın uygulama en üstte büyük kartla duruyor, altında son açtıkların var. Kurulu, kurulu olmayan, güncellemesi bekleyen gibi filtreler, açılıp kapanan gruplar, ızgara ya da liste görünümü var. Bir öğeye uzun basınca aç, güncelle, sabitle, koleksiyona ekle, kaldır gibi seçenekler çıkıyor. Telefonunda kurulu olup mağazada bulunmayan uygulamalar da kütüphanede görünüyor.
 
-## Kaynaklar
-- **F-Droid:** `index-v2.json` (afiş = featureGraphic, ekran görüntüleri: phone + 7" + 10", antiFeatures → reklam/izleyici)
-- **Google Play:** gplayapi (anonim dispenser ya da Google hesabı → AAS belirteci); yorumlar ReviewsHelper
-- **Steam mağazası (anahtarsız):** `featuredcategories`, `storesearch`, `appdetails`, `appreviews`, `GetNumberOfCurrentPlayers`; SteamDB bağlantıları
-- **Steam hesabı (kullanıcının kendi Web API anahtarı):** sahip olunan oyunlar, oyun başarımları (şema + yüzde)
+**Steam hesabı.** Steam ile giriş yapınca oyunların, oynama sürelerin ve başarımların uygulamaya geliyor, oyunlar kütüphanede ayrı bir filtrede duruyor. Giriş Steam'in kendi sayfasında yapılıyor, şifren uygulamaya hiç gelmiyor. Giriş yapmak istemezsen profil adını yazman yetiyor. O zaman sadece profilinde görünen oyunlar geliyor, çünkü Steam tam listeyi girişsiz göstermiyor.
 
-## Özellikler (dağıtılmış, ayrı sayfa yok)
-İstek listesi · Kütüphaneye ekle · Favoriler · Koleksiyonlar · Son bakılanlar · Günün uygulaması · Rastgele · Steam'de ara · Paket adıyla aç · Filtre hazırları · İstatistikler · Depolama · Temizlik önerileri · Kurulu uygulama bilgisi + APK yedekle · Yedekle/geri yükle (ayarlar dahil) · Kütüphaneyi paylaş · Arama geçmişi · Yazı boyutu · Titreşim · Gün serisi · 38 başarım · İndirme ön plan servisi + ikonlu bildirimler.
+**İndirmeler.** Aynı anda iki uygulama iniyor, diğerleri sırada bekliyor. İstediğin an duraklatıp sonra kaldığı yerden devam ettirebilirsin; internet kopsa ya da uygulama kapansa bile indirme baştan başlamıyor. Bağlantı giderse birkaç kez kendisi tekrar deniyor. İnen dosyanın boyutu ve SHA-256 değeri kontrol ediliyor. Bildirimde hız ve kalan süre görünüyor, duraklat ve iptal düğmeleri de orada.
 
-## Dosya haritası (`app/src/main/java/com/punkstore`)
-`Store.kt` (durum) · `Repo.kt` F-Droid · `PlayRepo.kt` Play · `SteamStoreApi.kt` · `SteamLink.kt` · `SteamUi.kt` (mağaza/kütüphane/detay) · `Discover.kt` · `Profile.kt` · `Achievements.kt` · `Features.kt` (alt sayfalar) · `Filters.kt` · `Downloads.kt` (indirme kuyruğu) · `Library.kt` (kütüphane) · `Installer.kt` (oturum/sistem/root) · `DownloadService.kt` · `Updater.kt` · `About.kt`/`Splash.kt`/`Logo.kt` · `Theme.kt` (paletler) · `Components.kt`.
+**Kurulum.** Normal Android kurucusu, sistemin kendi kurulum ekranı ya da root ile sessiz kurulum. Play'deki bölünmüş APK'lardan sadece telefonun işlemcisine uyanlar iniyor.
+
+**Uygulama sayfası.** Ekran görüntüleri, kullanıcı yorumları (Play ve Steam), gizlilik raporu (reklam ve izleyiciler, Exodus bağlantısı). Steam oyunlarında platformlar, sistem gereksinimleri, SteamDB bilgileri ve tahmini satış rakamları da var.
+
+**Ufak tefek şeyler.** İstek listesi, koleksiyonlar, sabitlenenler, Tinder tarzı kaydırmalı bir Keşfet ekranı, seviye ve başarımlar, güncelleme bildirimleri, yedekle ve geri yükle.
 
 ## Temalar
-- **Modern**: kullanıcının Steam mobil ekran görüntülerinden örneklenen gerçek renkler (#1F2127 çubuk, #2A2C34 panel, #1A9FFF mavi, #121A24 mağaza sayfası, #3B4650 satın alma).
-- **2013**: karbon siyahı + camsı yeşil · **2006**: steam.styles değerleri (GreenBG 76,88,68 · Maize 196,181,80), kabartmalı kenarlar.
+
+- **Steam (varsayılan):** bugünkü Steam mobil uygulamasının renkleri.
+- **Steam 2013:** karbon siyahı zemin, camsı yeşil düğmeler.
+- **Steam 2006:** eski Steam'in zeytin yeşili, kabartmalı kenarlı görünüşü.
+- **Material You:** telefonun kendi renkleri, Steam görünüşünü sevmeyenler için.
+
+## Derleme
+
+Kotlin ve Jetpack Compose ile yazıldı, Android 8.0 (API 26) ve üstünde çalışıyor.
+
+```sh
+gradle assembleRelease
+```
+
+APK `app/build/outputs/apk/release/` klasörüne çıkıyor.
+
+## Nereden ne geliyor
+
+- **F-Droid:** resmi depodaki `index-v2.json`
+- **Google Play:** Aurora OSS'nin [gplayapi](https://gitlab.com/AuroraOSS/gplayapi) kütüphanesi
+- **Steam mağazası:** Steam'in herkese açık mağaza uçları (API anahtarı gerekmiyor)
+- **Steam profili:** steamcommunity.com profil sayfaları
+
+## Teşekkürler
+
+[F-Droid](https://f-droid.org) ve [Aurora Store](https://auroraoss.com) olmasa bu uygulama olmazdı. Logo fontu Russo One (OFL).

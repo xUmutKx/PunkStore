@@ -79,13 +79,14 @@ fun SteamLibrary(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
         s.collections.forEach { (n, l) -> add(LibFilter("col:$n", "▣ $n") { it.pkg in l }) }
     }
     val f = filters.firstOrNull { it.key == filter } ?: filters[0]
-    val sorts = listOf(t("Son oynanan", "Recently played"), t("A-Z", "A-Z"), t("En çok açılan", "Most played"), t("Son güncellenen", "Recently updated"), t("Boyut", "Size"))
+    val sorts = listOf(t("Son oynanan", "Recently played"), t("A-Z", "A-Z"), t("En çok açılan", "Most played"), t("Son güncellenen", "Recently updated"), t("Boyut", "Size"), t("Oynama süresi", "Playtime"))
     val list = remember(all, filter, sort, q, s.installed.toMap(), s.pins.toList(), s.lastPlayed.toMap(), s.dl.tasks.keys.toSet()) {
         all.filter { f.test(it) && (q.isBlank() || it.name.contains(q.trim(), true) || it.pkg.contains(q.trim(), true)) }.let { l ->
             when (sort) {
                 1 -> l.sortedBy { it.name.lowercase() }
                 2 -> l.sortedByDescending { s.launches[it.pkg] ?: 0 }
                 3 -> l.sortedByDescending { it.updated }
+                5 -> l.sortedByDescending { it.extra["minutes"]?.toIntOrNull() ?: 0 }
                 4 -> l.sortedByDescending { it.apkSize }
                 else -> l.sortedWith(compareByDescending<AppItem> { s.lastPlayed[it.pkg] ?: 0L }.thenBy { it.name.lowercase() })
             }
@@ -258,7 +259,7 @@ private fun LibRow(s: Store, a: AppItem, modifier: Modifier, onOpen: () -> Unit,
                     Text(a.name, color = W, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 val status = when { s.hasUpdate(a) -> t("Güncelleme var", "Update available"); s.isInstalled(a) -> t("Kurulu", "Installed"); a.source == "STEAM" -> "Steam"; else -> t("Kurulu değil", "Not installed") }
-                Text(listOfNotNull(status, s.lastPlayed[a.pkg]?.let { t("son: ", "last: ") + ago(it) }, s.launches[a.pkg]?.let { t("$it kez", "$it×") }, sizeText(a.apkSize).ifBlank { null }).joinToString(" · "),
+                Text(listOfNotNull(status, a.extra["minutes"]?.toIntOrNull()?.takeIf { it > 0 }?.let { t("${it / 60} saat oynandı", "${it / 60} h played") }, s.lastPlayed[a.pkg]?.let { t("son: ", "last: ") + ago(it) }, s.launches[a.pkg]?.let { t("$it kez", "$it×") }, sizeText(a.apkSize).ifBlank { null }).joinToString(" · "),
                     color = if (s.hasUpdate(a)) Steam.greenA else Steam.dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (a.source == "LOCAL") SmallIconBtn(Icons.Filled.PlayArrow, t("Aç", "Open"), onOpen) else ActionButton(s, a, Modifier.widthIn(min = 84.dp), compact = true)

@@ -1,6 +1,13 @@
 # Punk Store — sürüm notları
 
-## 0.22 (2026-10-05)
+## 0.23 (2026-10-05)
+- **Steam oyunları gelmiyordu**: Steam, oyun listesi sayfasını (`/games`, XML dahil) artık yalnızca giriş yapmış kullanıcılara gösteriyor (girişsiz istek giriş sayfasına yönleniyor). Çözüm: **Steam ile giriş yap** (Steam'in kendi sayfası, WebView; şifre uygulamaya gelmez, yalnızca oturum çerezi saklanır) → tam oyun listesi + oynama süreleri + başarımlar. Girişsiz yedek: profildeki "en çok oynanan" ve son etkinlik oyunları; toplam oyun/arkadaş/rozet sayısı profil sayfasından. Neden boş geldiği artık açıkça yazılıyor.
+- Steam oyunları Punk Store **kütüphanesine** eklenir ("Steam" filtresi, oynama süresi, "Oynama süresi" sıralaması); liste diske kaydedilir.
+- **Steam hesabı sayfası** Steam mobil hesap sayfası gibi: degrade profil başlığı + çerçeveli kare avatar + "Profili görüntüle", Oyun/Seviye/Saat kutuları, büyük mavi düğme, "OYUNLARIM" listesi (Steam arama satırı gibi başlık görselli), Hesabı değiştir / Çıkış yap satırları; oyun başarımları sayfası başlık görselli.
+- **Ayarlar (Steam temalarında)** baştan: büyük kalın satırlar, gri aralıklı bölüm başlıkları, mavi tikli seçimler, kayan mavi anahtarlar, koyu giriş kutuları (SteamKit.kt).
+- Saat sayıları dil biçiminden bağımsız okunur (1,234.5 / 1.234,5).
+- İkon: poşet %5 küçültüldü.
+
 - **Yeni indirme motoru** (`Downloads.kt`): kuyruk (aynı anda 2), `.part` + HTTP Range ile kaldığı yerden devam, duraklat / sürdür / iptal, ağ hatasında 4 kez üstel beklemeli yeniden deneme, boş alan denetimi, boyut + SHA-256 doğrulaması (F-Droid hex, Play base64), kurulum sonucu PackageInstaller'dan okunur (iptal / imza çakışması / yetersiz alan anlaşılır mesajla), yarım kalan indirmeler sonraki açılışta "Duraklatıldı" olarak geri gelir, kurulum iptal edilirse APK silinmez (yeniden indirmeden tekrar dene).
 - Bildirim: uygulama başına ilerleme, hız, kalan süre; **Duraklat** ve **İptal** düğmeleri.
 - İndir düğmesi: içi soldan sağa dolar, durum yazısı kayarak değişir (Sırada → %42 → Doğrulanıyor → Kuruluyor → ✓ Kuruldu), dokununca duraklat/devam, hata olursa kırmızı "Tekrar dene". Altında "12,3 / 45,6 MB · 2,1 MB/s · 15 sn kaldı" satırı.

@@ -98,7 +98,7 @@ fun Root(s: Store) {
         if (fn.ach) {
             AchievementsScreen(s) { achScreen = false }
         } else if (fn.steamAcc) {
-            SteamAccountScreen(s) { steamAcc = false }
+            SteamAccountScreen(s, { steamAcc = false }) { steamAcc = false; nav(it) }
         } else if (fn.about) {
             AboutScreen(s) { about = false }
         } else if (fn.login) {
@@ -125,7 +125,7 @@ fun Root(s: Store) {
                     when {
                         n.overlay != null && n.overlay.startsWith("f:") -> FeatureScreen(s, n.overlay.removePrefix("f:"), { openPkg = it }) { overlay = null }
                         n.wishlist -> WishlistScreen(s, { openPkg = it }) { wishlist = false }
-                        n.settings -> Column { SettingsBar { settings = false }; SettingsScreen(s, { login = true }, { about = true }, { nav(it) }) }
+                        n.settings -> if (s.design.steam) SteamSettingsScreen(s, { settings = false }, { login = true }, { about = true }, { nav(it) }) else Column { SettingsBar { settings = false }; SettingsScreen(s, { login = true }, { about = true }, { nav(it) }) }
                         n.category != null -> CategoryScreen(s, n.category, { openPkg = it }) { category = null }
                         n.tab == Tab.STORE -> if (s.design.steam) SteamStore(s, { openPkg = it }, { category = it }, { nav(it) })
                                             else MaterialHome(s, { openPkg = it }, { category = it })
