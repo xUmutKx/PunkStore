@@ -9,7 +9,7 @@ enum class LangPref { AUTO, TR, EN }
 
 /** Uygulama dili. Compose durumu olduğu için değişince arayüz kendiliğinden yenilenir. */
 object I18n {
-    var pref by mutableStateOf(LangPref.AUTO)
+    var pref by mutableStateOf(LangPref.EN)
     val isTr: Boolean get() = when (pref) {
         LangPref.TR -> true
         LangPref.EN -> false

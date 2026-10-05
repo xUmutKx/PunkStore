@@ -1,50 +1,39 @@
-# Punk Store — sürüm notları
+# Changelog
 
-## 0.23 (2026-10-05)
-- **Steam oyunları gelmiyordu**: Steam, oyun listesi sayfasını (`/games`, XML dahil) artık yalnızca giriş yapmış kullanıcılara gösteriyor (girişsiz istek giriş sayfasına yönleniyor). Çözüm: **Steam ile giriş yap** (Steam'in kendi sayfası, WebView; şifre uygulamaya gelmez, yalnızca oturum çerezi saklanır) → tam oyun listesi + oynama süreleri + başarımlar. Girişsiz yedek: profildeki "en çok oynanan" ve son etkinlik oyunları; toplam oyun/arkadaş/rozet sayısı profil sayfasından. Neden boş geldiği artık açıkça yazılıyor.
-- Steam oyunları Punk Store **kütüphanesine** eklenir ("Steam" filtresi, oynama süresi, "Oynama süresi" sıralaması); liste diske kaydedilir.
-- **Steam hesabı sayfası** Steam mobil hesap sayfası gibi: degrade profil başlığı + çerçeveli kare avatar + "Profili görüntüle", Oyun/Seviye/Saat kutuları, büyük mavi düğme, "OYUNLARIM" listesi (Steam arama satırı gibi başlık görselli), Hesabı değiştir / Çıkış yap satırları; oyun başarımları sayfası başlık görselli.
-- **Ayarlar (Steam temalarında)** baştan: büyük kalın satırlar, gri aralıklı bölüm başlıkları, mavi tikli seçimler, kayan mavi anahtarlar, koyu giriş kutuları (SteamKit.kt).
-- Saat sayıları dil biçiminden bağımsız okunur (1,234.5 / 1.234,5).
-- İkon: poşet %5 küçültüldü.
+## 0.23
+- Steam stopped showing games lists to signed-out visitors, which is why linked accounts came up empty. Added **Sign in with Steam** (Steam's own login page, only the session cookie is kept), which brings in the full games list, playtime and achievements. Without signing in you still get the games visible on your profile, plus game, friend and badge counts. The app now tells you why a list is incomplete.
+- Steam games show up in the library with their own filter, playtime and a "Playtime" sort.
+- The Steam account page now looks like the Steam app's account page: profile header, stat boxes, a big blue button, a "My games" list and account rows.
+- Settings redone for the Steam themes: large rows, grey section headers, blue checkmarks and switches.
+- English is now the default language.
+- Hours are read correctly no matter which number format Steam uses.
+- The bag in the icon is 5% smaller.
 
-- **Yeni indirme motoru** (`Downloads.kt`): kuyruk (aynı anda 2), `.part` + HTTP Range ile kaldığı yerden devam, duraklat / sürdür / iptal, ağ hatasında 4 kez üstel beklemeli yeniden deneme, boş alan denetimi, boyut + SHA-256 doğrulaması (F-Droid hex, Play base64), kurulum sonucu PackageInstaller'dan okunur (iptal / imza çakışması / yetersiz alan anlaşılır mesajla), yarım kalan indirmeler sonraki açılışta "Duraklatıldı" olarak geri gelir, kurulum iptal edilirse APK silinmez (yeniden indirmeden tekrar dene).
-- Bildirim: uygulama başına ilerleme, hız, kalan süre; **Duraklat** ve **İptal** düğmeleri.
-- İndir düğmesi: içi soldan sağa dolar, durum yazısı kayarak değişir (Sırada → %42 → Doğrulanıyor → Kuruluyor → ✓ Kuruldu), dokununca duraklat/devam, hata olursa kırmızı "Tekrar dene". Altında "12,3 / 45,6 MB · 2,1 MB/s · 15 sn kaldı" satırı.
-- İndirmeler sayfası: kuyruk kartları, tümünü duraklat / sürdür, bitenleri temizle.
-- **Kütüphane Steam gibi** (`Library.kt`): "Son oynanan" büyük kartı + son oynananlar şeridi, sayılı filtre çipleri (Tümü / Kurulu / Kurulu değil / Güncellemeler / İndirilenler / Sabitlenen / Oynanan / Oyunlar / F-Droid / Play / Steam / Cihaz / koleksiyonlar), açılır-kapanır gruplar (İndirilenler, Güncelleme bekleyenler, Kurulu, Kurulu değil), ızgara ↔ liste görünümü, 5 sıralama (son oynanan, A-Z, en çok açılan, son güncellenen, boyut), tümünü güncelle, uzun basınca menü (aç, yükle/güncelle, sabitle, koleksiyon, kütüphaneden çıkar, kaldır, uygulama bilgisi). Katalogda olmayan kurulu uygulamalar da "Cihaz" olarak listelenir (kendi ikonlarıyla). Punk Store'dan kurulan her şey kütüphaneye otomatik eklenir.
-- Animasyonlar: sekmeler arası yöne göre kayma, uygulama sayfası sağdan kayarak açılır, basınca yaylanan düğme/kartlar, liste öğeleri yer değiştirirken akar.
-- İkon: poşet yukarı alındı (üstteki boşluk giderildi, dikeyde ortalı).
+## 0.22
+- New download engine: a queue (two at a time), resume after pause, connection loss or app restart, automatic retries, a free space check, size and SHA-256 checks, and readable install errors. If an install gets cancelled the APK is kept, so retrying doesn't download it again.
+- Per-app notifications with speed, time left, and pause and cancel buttons.
+- The install button fills up as the download goes and walks through Queued → % → Verifying → Installing → Installed. Tap it to pause or resume.
+- The library was rebuilt in Steam's style: last played card, recent row, filter chips with counts, collapsible groups, grid or list, five sort options, and a long-press menu. Apps installed elsewhere are listed too.
+- Animated transitions between tabs and pages, and springy buttons.
+- The icon's bag moved up so it sits centered.
 
-## 0.16 (2026-10-05)
-- Arama: yazdıkça canlı (180 ms), Play ve Steam paralel, ilerleme çubuğu; yeni sıralama (Rank.kt: tam ad > önek > kelime > içerir); Play'de bulunamazsa bilinen/olası paket adlarıyla doğrudan sorgu (WhatsApp vb.).
-- İndirme: Play split APK'ları cihaz ABI'sine göre süzülür (-113 hatası).
-- Detay: düğmeler 2 sütunlu düzgün ızgara; gerçek Windows/Apple/Linux/Android logoları (Windows yalnızca Steam); incelemeler sayfanın en altında; Steam Topluluk Pazarı + fiyat karşılaştırma bağlantıları.
-- Hata kutusu: koyu zeminde beyaz yazı, 6 sn sonra kendiliğinden kapanır, OK düğmesi (takılı kalma düzeltildi).
-- Açılış animasyonu cihazdaki ikon paketini kullanmaz (yalnızca katalog görselleri). İkon çarkı %24 küçüldü.
+## 0.21
+- Icon: smaller bag, bigger gear.
 
-## 0.15 (2026-10-05)
-- Menü/Profil tekrarları kaldırıldı: MENÜ yalnızca Steam/Ayarlar/Bilgi/Yenile; Başarımlar tek yerde; Profil'den istek listesi/ayarlar satırları çıktı; kısayol satırlarından Keşfet/İndirmeler tekrarları çıktı.
-- Rozetler + Başarımlar tek sayfa ("Rozetler ve Başarımlar", seviye rozeti dahil).
-- Yorumlar: yüklenemezse hata + "Tekrar dene"; gerçekten boşsa bölüm gizlenir.
-- ROOT/oturum kurulumunda INSTALL_FAILED_NO_MATCHING_ABIS: F-Droid'de cihaz ABI'sine uyan sürüm seçilir; Google Play isteği gerçek cihaz ABI'siyle yapılır.
-- Steam: platform simgeleri (Windows/macOS/Linux, Play'de aynı adlı oyun varsa Android), SteamSpy ile tahmini sahip sayısı/brüt gelir/ortalama oynama.
-- Gizlilik raporu (reklam/izleyici + Exodus Privacy bağlantısı).
+## 0.20
+- Uninstall from anywhere, the privacy report and reviews moved under the install panel, Google Play reviews, a bigger catalog that stays cached, a new icon (a gear inside a shopping bag), a new updates tab icon, and splash images cached in the background.
 
-## 0.14 (2026-10-05)
-- ÇÖKME düzeltildi: Play uygulaması sayfası (ör. İstanbulkart) `"%90 · …".format()` biçim hatasıyla çöküyordu; Steam değerlendirme özeti de aynı hatayı taşıyordu.
-- Bildirimde indirilen uygulamanın ikonu ve adı (büyük ikon), alt satırda "Punk Store".
-- İndirme çubuğu: dalgalı yalnızca Material temasında; Steam temalarında düz mavi çubuk + akan ışık.
-- Açılış: varsayılan Android ikonlu kurulumlar elendi, katalog kapakları karıştırıldı. İkon: kalın, büyük 8 dişli çark, "P" kaldırıldı.
-- Profil: eski 8 rozet kaldırıldı → Başarımlar özeti; uzun özellik listesi kaldırıldı, kısayollar ikonlu olarak Mağaza/Kütüphane/Güncellemeler'e dağıtıldı; menü ikonlu ve kısa.
-- Detay: kullanıcı yorumları (Steam/Play), SteamDB bölümü (şu an oynayan, fiyat geçmişi, grafikler), sistem gereksinimleri, diller, Metacritic, fragman, daha çok görsel (kaydırmalı galeri), tam genişlik istek listesi düğmesi, ikonlu eylem düğmeleri, Windows simgesi (Steam).
-- Keşfet: kategori sekmeleri (Android/Steam/Oyunlar/…), yatay/dikey görseller bulanık arka planla sığar, dokununca sonraki görsel, Steam oyunları desteği.
-- Ayarlar: dışa/içe aktarma (ayarlar dahil). Arama kutusunda uygulama sayısı kaldırıldı. Alt boşluklar.
+## 0.17 – 0.18
+- Link Steam with just a profile ID (no API key), an empty search shows filter results, Steam-style search overlay with recent searches, a smaller button block on app pages.
 
-## 0.13 — modern Steam paleti gerçek piksellerden; yeni ikon denemesi
-## 0.12 — ön plan indirme servisi, dalgalı çubuk, hızlı açılış, özellik gruplama
-## 0.11 — Russo One logo, Steam mağazası entegrasyonu, 20+ yeni özellik
-## 0.10 — temalara özel panel/parlaklık/karbon doku, akıllı kapak
-## 0.9 — 33 başarım, Steam hesabı (Web API), açılış animasyonu
-## 0.8 — bilgi sayfası, yeni ikon · 0.7 — güncelleme denetimi, filtre, Keşfet, kurulum yöntemleri, temalar
-## 0.6 — Steam mobil arayüzü yeniden · 0.5 — ikon · 0.4 — Google girişi · 0.3 — istek listesi/profil
+## 0.16
+- Live search with better ranking, ABI filtering for split APKs, a tidy button grid, real platform logos, reviews at the bottom, readable error messages, and a splash screen that no longer uses your icon pack.
+
+## 0.15
+- Fewer duplicate menu entries, badges and achievements merged, review retry, ABI-matched versions, Steam platform icons and SteamSpy estimates, and a privacy report.
+
+## 0.14
+- Fixed a crash on some Play app pages, app icons in notifications, reviews, a SteamDB section, system requirements, a gallery, Discover categories, and export/import of settings.
+
+## 0.13 and earlier
+- Steam colors sampled from real screenshots, a foreground download service, the Russo One logo, Steam store integration, theme textures, achievements, the about page, update checks, filters, Discover, install methods, Google sign-in, the wishlist and profile.

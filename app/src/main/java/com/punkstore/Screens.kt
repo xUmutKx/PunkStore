@@ -290,7 +290,7 @@ fun SettingsScreen(s: Store, onGoogleLogin: () -> Unit = {}, onAbout: () -> Unit
             Row(verticalAlignment = Alignment.CenterVertically) { Text(t("AMOLED siyah", "AMOLED black"), Modifier.weight(1f)); Switch(s.amoled, { s.changeAmoled(it) }) }
         }
         SectionTitle(t("Dil", "Language"), s, Modifier.padding(0.dp))
-        listOf(LangPref.AUTO to t("Otomatik", "Automatic"), LangPref.TR to "Türkçe", LangPref.EN to "English").forEach { (p, title) ->
+        listOf(LangPref.EN to "English", LangPref.TR to "Türkçe", LangPref.AUTO to t("Telefonun dili", "Device language")).forEach { (p, title) ->
             Row(Modifier.fillMaxWidth().clickable { s.changeLang(p) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(I18n.pref == p, { s.changeLang(p) }); Text(title)
             }

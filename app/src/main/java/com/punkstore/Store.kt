@@ -377,7 +377,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     init {
         PlayRepo.customDispenser = dispenser
         Steam.pal = palFor(design); Steam.material = !design.steam
-        I18n.pref = runCatching { LangPref.valueOf(prefs.getString("lang", "AUTO")!!) }.getOrDefault(LangPref.AUTO)
+        I18n.pref = runCatching { LangPref.valueOf(prefs.getString("lang", "EN")!!) }.getOrDefault(LangPref.EN)
         FdroidRepo.cached(app)?.let { fdroid = it }
         loadExtra()
         refreshInstalled()

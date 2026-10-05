@@ -53,7 +53,7 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
             }
 
             SteamSection(t("Dil", "Language"))
-            listOf(LangPref.AUTO to t("Otomatik", "Automatic"), LangPref.TR to "Türkçe", LangPref.EN to "English").forEach { (p, title) ->
+            listOf(LangPref.EN to "English", LangPref.TR to "Türkçe", LangPref.AUTO to t("Telefonun dili", "Device language")).forEach { (p, title) ->
                 SteamChoiceRow(title, null, lang == p) { s.changeLang(p); lang = p }
             }
 
