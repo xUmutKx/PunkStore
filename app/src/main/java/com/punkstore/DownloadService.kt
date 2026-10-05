@@ -62,6 +62,14 @@ class DownloadService : Service() {
                 .addAction(0, t("Duraklat", "Pause"), action(c, "punk.PAUSE", pkg)).addAction(0, t("İptal", "Cancel"), action(c, "punk.CANCEL", pkg)).build())
         }
         fun clear(c: Context, pkg: String) { lastPct.remove(pkg); c.getSystemService(NotificationManager::class.java).cancel(pkg.hashCode()) }
+        /** Doğrulama / kurulum aşaması: belirsiz ilerleme çubuklu bildirim */
+        fun installing(c: Context, pkg: String, name: String) {
+            if (!canNotify(c)) return; channel(c); lastPct.remove(pkg)
+            val pi = PendingIntent.getActivity(c, 0, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+            c.getSystemService(NotificationManager::class.java).notify(pkg.hashCode(), NotificationCompat.Builder(c, "downloads")
+                .setSmallIcon(android.R.drawable.stat_sys_download).setLargeIcon(icons[pkg]).setContentTitle(name).setSubText("Punk Store")
+                .setContentText(t("Kuruluyor…", "Installing…")).setProgress(0, 0, true).setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setContentIntent(pi).build())
+        }
         /** Bitti (err == null) ya da hata bildirimi */
         fun done(c: Context, pkg: String, name: String, err: String?) {
             lastPct.remove(pkg)
@@ -71,7 +79,7 @@ class DownloadService : Service() {
             c.getSystemService(NotificationManager::class.java).notify(pkg.hashCode(), NotificationCompat.Builder(c, "downloads")
                 .setSmallIcon(if (err == null) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_notify_error).setLargeIcon(icons[pkg])
                 .setContentTitle(name).setSubText("Punk Store")
-                .setContentText(if (err == null) t("İndirildi, kuruluyor…", "Downloaded, installing…") else t("Hata: ", "Error: ") + err).setAutoCancel(true).setContentIntent(pi).build())
+                .setContentText(if (err == null) t("Kuruldu ✓", "Installed ✓") else t("Hata: ", "Error: ") + err).setAutoCancel(true).setContentIntent(pi).build())
             icons.remove(pkg)
         }
     }

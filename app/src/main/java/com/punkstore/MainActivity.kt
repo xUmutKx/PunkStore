@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class Tab(private val tr: String, private val en: String, val bottom: Boolean = true) {
-    STORE("Mağaza", "Store"), DISCOVER("Keşfet", "Discover"), SEARCH("Ara", "Search", false), LIBRARY("Kütüphane", "Library"), UPDATES("Güncelleme", "Updates"), PROFILE("Profil", "Profile");
+    STORE("Mağaza", "Store"), DISCOVER("Keşfet", "Discover"), SEARCH("Ara", "Search", false), LIBRARY("Kütüphane", "Library"), UPDATES("İndirilenler", "Downloads"), PROFILE("Profil", "Profile");
     val label get() = t(tr, en)
 }
 
@@ -46,7 +46,7 @@ enum class Tab(private val tr: String, private val en: String, val bottom: Boole
 private data class FullNav(val ach: Boolean, val steamAcc: Boolean, val about: Boolean, val login: Boolean, val pkg: String?) {
     val depth get() = if (pkg != null) 1 else if (ach || steamAcc || about || login) 2 else 0
 }
-private data class InnerNav(val tab: Tab, val materialSearch: Boolean, val overlay: String?, val wishlist: Boolean, val settings: Boolean, val category: String?)
+private data class InnerNav(val pkg: String?, val tab: Tab, val materialSearch: Boolean, val overlay: String?, val wishlist: Boolean, val settings: Boolean, val category: String?)
 
 @Composable
 fun Root(s: Store) {
@@ -86,7 +86,7 @@ fun Root(s: Store) {
     Box(Modifier.fillMaxSize().then(if (s.design.steam && Steam.carbon) Modifier.carbon() else Modifier)) {
         if (splash) SplashOverlayHost(s) { splash = false }
         // Tam ekran sayfalar arası geçiş: ayrıntı sağdan kayarak gelir, diğerleri yumuşak solma + hafif büyüme
-        val full = FullNav(achScreen, steamAcc, about, login, if (app != null) openPkg else null)
+        val full = FullNav(achScreen, steamAcc, about, login, if (app != null && !s.design.steam) openPkg else null)
         androidx.compose.animation.AnimatedContent(full, transitionSpec = {
             val fwd = targetState.depth > initialState.depth || (targetState.pkg != null && initialState.pkg != null)
             if (targetState.pkg != null || initialState.pkg != null) {
@@ -108,11 +108,11 @@ fun Root(s: Store) {
         } else {
             Scaffold(
                 containerColor = if (s.design.steam && Steam.carbon) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
-                topBar = { if (s.design.steam && !wishlist && !settings && (if (tab == Tab.SEARCH) prevTab else tab) == Tab.STORE && category == null) SteamTopBar2(s) { nav(it) } },
-                bottomBar = { BottomBar(s.design, tab, s.updateCount) { if (it == Tab.SEARCH && tab != Tab.SEARCH) prevTab = tab; tab = it; category = null; wishlist = false; settings = false } },
+                topBar = { if (s.design.steam && app != null) SteamThinTopBar(s, { openPkg = null }) { nav(it) } else if (s.design.steam && !wishlist && !settings && (if (tab == Tab.SEARCH) prevTab else tab) == Tab.STORE && category == null) SteamTopBar2(s) { nav(it) } },
+                bottomBar = { Column { DownloadDock(s) { openPkg = null; category = null; wishlist = false; settings = false; tab = Tab.UPDATES }; BottomBar(s.design, tab, s.updateCount, s.floatDock && s.design.steam) { if (it == Tab.SEARCH && tab != Tab.SEARCH) prevTab = tab; tab = it; openPkg = null; category = null; wishlist = false; settings = false } } },
             ) { pad ->
                 Box(Modifier.padding(pad).fillMaxSize()) {
-                    val inner = InnerNav(if (tab == Tab.SEARCH && s.design.steam) prevTab else tab, tab == Tab.SEARCH && !s.design.steam, overlay, wishlist, settings, category)
+                    val inner = InnerNav(if (app != null && s.design.steam) openPkg else null, if (tab == Tab.SEARCH && s.design.steam) prevTab else tab, tab == Tab.SEARCH && !s.design.steam, overlay, wishlist, settings, category)
                     // Sekmeler arası: yöne göre kayma (sağdaki sekmeye geçince sağdan gelir)
                     androidx.compose.animation.AnimatedContent(inner, transitionSpec = {
                         val dir = targetState.tab.ordinal.compareTo(initialState.tab.ordinal)
@@ -123,6 +123,7 @@ fun Root(s: Store) {
                     }, label = "tab") { n ->
                     Box(Modifier.fillMaxSize()) {
                     when {
+                        n.pkg != null && s.design.steam -> s.byPkg(n.pkg).let { it ?: s.anyPkg(n.pkg) }?.let { SteamDetail(s, it, { openPkg = null }) { openPkg = null; category = it } }
                         n.overlay != null && n.overlay.startsWith("f:") -> FeatureScreen(s, n.overlay.removePrefix("f:"), { openPkg = it }) { overlay = null }
                         n.wishlist -> WishlistScreen(s, { openPkg = it }) { wishlist = false }
                         n.settings -> if (s.design.steam) SteamSettingsScreen(s, { settings = false }, { login = true }, { about = true }, { nav(it) }) else Column { SettingsBar { settings = false }; SettingsScreen(s, { login = true }, { about = true }, { nav(it) }) }
@@ -142,6 +143,7 @@ fun Root(s: Store) {
         }
         }
         if (tab == Tab.SEARCH && s.design.steam && app == null && !achScreen && !steamAcc && !about && !login) SteamSearch(s, { openPkg = it }, { tab = prevTab })
+        Browser.url?.let { u -> Box(Modifier.fillMaxSize().zIndex(8f)) { WebScreen(u) { Browser.url = null } } }
         s.achToast?.let { a ->
             Row(Modifier.align(androidx.compose.ui.Alignment.TopCenter).statusBarsPadding().padding(12.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(Steam.corner.dp)).background(Steam.row).border(1.dp, Steam.btn, androidx.compose.foundation.shape.RoundedCornerShape(Steam.corner.dp)).clickable { s.dismissToast(); achScreen = true }.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Icon(a.icon, null, tint = Steam.btn, modifier = Modifier.size(32.dp)); Spacer(Modifier.width(10.dp))

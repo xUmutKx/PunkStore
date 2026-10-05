@@ -67,7 +67,7 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit, onNav: (String) -> Unit = {
                         item {
                             SteamProfileHeader(p.name, { AsyncImage(p.avatar, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) },
                                 listOf(p.online, p.headline).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null }, t("Profili görüntüle", "View Profile"), onBack) {
-                                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://steamcommunity.com/profiles/${p.id}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                                Browser.open("https://steamcommunity.com/profiles/${p.id}")
                             }
                             SteamStats("${p.gameCount}" to t("Oyun", "Games"), "${p.level}" to t("Seviye", "Level"), "${p.games.sumOf { it.minutes } / 60}" to t("Saat", "Hours"))
                             if (s.steamLoading) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Steam.blue, trackColor = Steam.panel)

@@ -125,6 +125,7 @@ class DownloadQueue(private val s: Store) {
     // ---------------- iş akışı ----------------
     private suspend fun run(a: AppItem) {
         upd(a.pkg) { it.copy(state = DlState.DOWNLOADING, error = null) }
+        DownloadService.progress(ctx, a.pkg, a.name, 0)
         val files = withContext(Dispatchers.IO) { resolveFiles(a) }
         val total = files.sumOf { it.size }.takeIf { it > 0 } ?: a.apkSize
         val dir = File(ctx.cacheDir, "apk/${a.pkg}/${a.versionCode}").apply { mkdirs() }
@@ -161,7 +162,7 @@ class DownloadQueue(private val s: Store) {
         }
 
         upd(a.pkg) { it.copy(state = DlState.INSTALLING) }
-        DownloadService.done(ctx, a.pkg, a.name, null)
+        DownloadService.installing(ctx, a.pkg, a.name)
         val wait = InstallBus.expect(a.pkg)
         withContext(Dispatchers.IO) { Installer.installMany(ctx, out, a.pkg) }
         val res: String? = when (Cfg.method(ctx)) {
@@ -173,6 +174,7 @@ class DownloadQueue(private val s: Store) {
         if (Cfg.deleteApk(ctx)) dir.parentFile?.deleteRecursively()
         tasks[a.pkg]?.let { put(it.copy(state = DlState.DONE, speed = 0)) }
         s.onInstalled(a)
+        DownloadService.done(ctx, a.pkg, a.name, null)
         delay(4000)
         if (tasks[a.pkg]?.state == DlState.DONE) tasks.remove(a.pkg)
     }

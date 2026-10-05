@@ -46,6 +46,7 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
                 SteamChoiceRow(title, sub, s.design == d) { s.changeDesign(d) }
             }
             SteamSwitchRow(t("Açılış animasyonu", "Startup animation"), on = s.splash) { s.changeSplash(it) }
+            SteamSwitchRow(t("Yüzen dock", "Floating dock"), t("Alt çubuk ekranın üstünde yüzen yuvarlak bir dock olur", "Bottom bar becomes a floating rounded dock"), s.floatDock) { s.changeFloatDock(it) }
             SteamSwitchRow(t("Titreşim", "Haptics"), t("Keşfet kaydırmalarında", "On Discover swipes"), s.haptic) { s.changeHaptic(it) }
             SteamRow(t("Yazı boyutu", "Text size"), "%${(s.fontScale * 100).toInt()}", chevron = false)
             Box(Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 20.dp)) {

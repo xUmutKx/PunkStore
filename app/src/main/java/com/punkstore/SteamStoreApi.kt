@@ -8,7 +8,9 @@ import okhttp3.Request
 /** Steam Mağaza genel API'si (anahtar gerektirmez): öne çıkanlar, arama, ayrıntı, değerlendirmeler. */
 object SteamStoreApi {
     private val lang get() = if (I18n.isTr) "turkish" else "english"
-    private fun get(url: String): JsonObject = http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+    /** Yaş doğrulaması / olgun içerik (VR dahil) için giriş yapmadan da tam veri gelsin. */
+    private const val AGE_COOKIE = "birthtime=631152001; lastagecheckage=1-January-1990; wants_mature_content=1; mature_content=1"
+    private fun get(url: String): JsonObject = http.newCall(Request.Builder().url(url).header("Cookie", AGE_COOKIE).build()).execute().use { r ->
         check(r.isSuccessful) { "Steam: ${r.code}" }; json.parseToJsonElement(r.body!!.string()).jsonObject
     }
 
@@ -54,7 +56,7 @@ object SteamStoreApi {
     /** Açıklama, geliştirici, türler, ekran görüntüleri ve gerçek kullanıcı değerlendirme özeti. */
     suspend fun details(a: AppItem): AppItem = withContext(Dispatchers.IO) {
         val id = a.pkg.removePrefix("steam:")
-        val d = get("https://store.steampowered.com/api/appdetails?appids=$id&cc=${if (I18n.isTr) "tr" else "us"}&l=$lang")[id]?.jsonObject?.get("data")?.jsonObject ?: return@withContext a
+        val d = get("https://store.steampowered.com/api/appdetails?appids=$id&cc=${if (I18n.isTr) "tr" else "us"}&l=$lang")[id]?.jsonObject?.get("data")?.jsonObject ?: return@withContext spyOnly(a, id)
         val genres = d["genres"]?.jsonArray.orEmpty().mapNotNull { it.jsonObject["description"]?.jsonPrimitive?.content }
         val cats = d["categories"]?.jsonArray.orEmpty().mapNotNull { it.jsonObject["description"]?.jsonPrimitive?.content }.take(6)
         val shots = d["screenshots"]?.jsonArray.orEmpty().mapNotNull { it.jsonObject["path_full"]?.jsonPrimitive?.content }.take(10)
@@ -77,6 +79,7 @@ object SteamStoreApi {
                 if (rng != null && usd > 0) { val lo = rng.groupValues[1].replace(",", "").toLong(); val hi = rng.groupValues[2].replace(",", "").toLong(); put("revenue", String.format("$%,d – $%,d", lo * usd / 100, hi * usd / 100)) }
             }
             d["metacritic"]?.jsonObject?.get("score")?.jsonPrimitive?.content?.let { put("metacritic", it) }
+            d["metacritic"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull?.let { put("metaurl", it) }
             d["achievements"]?.jsonObject?.get("total")?.jsonPrimitive?.content?.let { put("achievements", it) }
             d["recommendations"]?.jsonObject?.get("total")?.jsonPrimitive?.content?.let { put("recs", it) }
             put("platforms", plat); put("players", players)
@@ -96,6 +99,20 @@ object SteamStoreApi {
             banner = d["header_image"]?.jsonPrimitive?.content ?: a.banner, review = review, rating = pct / 20f,
             versionName = d["release_date"]?.jsonObject?.get("date")?.jsonPrimitive?.content.orEmpty(),
         )
+    }
+
+    /** appdetails bir oyun için veri vermezse (bölge/yaş kısıtı) SteamSpy'dan temel bilgileri al. */
+    private fun spyOnly(a: AppItem, id: String): AppItem {
+        val sp = runCatching { get("https://steamspy.com/api.php?request=appdetails&appid=$id") }.getOrNull() ?: return a
+        val tags = sp["tags"]?.let { (it as? JsonObject)?.keys?.take(10) }.orEmpty().toList()
+        val pos = sp["positive"]?.jsonPrimitive?.intOrNull ?: 0; val neg = sp["negative"]?.jsonPrimitive?.intOrNull ?: 0
+        val extra = buildMap {
+            sp["owners"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let { put("owners", it) }
+            sp["average_forever"]?.jsonPrimitive?.intOrNull?.takeIf { it > 0 }?.let { put("avgplay", (it / 60).toString()) }
+        }
+        return a.copy(extra = extra, developer = sp["developer"]?.jsonPrimitive?.contentOrNull.orEmpty(), license = sp["publisher"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            tags = tags, categories = (tags + "Steam").distinct(), rating = if (pos + neg > 0) pos * 5f / (pos + neg) else 0f,
+            review = if (pos + neg > 0) String.format("(%d%% / %,d)", pos * 100 / (pos + neg), pos + neg) else "")
     }
 
     /** Kullanıcı incelemeleri (en faydalılar): Türkçe, yoksa tüm diller. */

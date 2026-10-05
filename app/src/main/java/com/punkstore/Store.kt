@@ -339,6 +339,10 @@ class Store(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("ach", achUnlocked.joinToString(",")).putString("achT", achTime.entries.joinToString(",") { "${it.key}:${it.value}" }).apply()
         achToast = new.last()
     }
+    var compactInstalled by mutableStateOf(prefs.getBoolean("compactInst", true)); private set
+    fun changeCompactInstalled(v: Boolean) { compactInstalled = v; prefs.edit().putBoolean("compactInst", v).apply() }
+    var floatDock by mutableStateOf(prefs.getBoolean("floatDock", false)); private set
+    fun changeFloatDock(v: Boolean) { floatDock = v; prefs.edit().putBoolean("floatDock", v).apply() }
     var splash by mutableStateOf(prefs.getBoolean("splash", true)); private set
     fun changeSplash(v: Boolean) { splash = v; prefs.edit().putBoolean("splash", v).apply() }
 

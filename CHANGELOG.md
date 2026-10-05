@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.25
+- The profile page in the Steam themes now follows the Steam app's "You" page: maroon header with a square framed avatar, three stat boxes, a big blue button and plain "My content" rows.
+- The big PUNK STORE banner on the home page is touchable: a light follows your finger, the colour shifts while you hold it, the gear spins, and a tap opens the app of the day.
+- Screenshots added to the README.
+
+## 0.24
+- The install button is now a translucent liquid-glass button. Hold it and the colour drifts and it squishes like slime.
+- Download progress lives in one thin bar above the bottom bar, on every screen. The second bar on the app page is gone.
+- Notifications walk through Downloading, Installing and Installed.
+- App pages keep the top and bottom bars. Links open inside the app instead of the browser.
+- Install button first on the app page, with the Steam-only sections (players, requirements, languages) below.
+- Metacritic-style yellow and black score boxes for Metacritic, Steam and Google Play, with verdicts and review counts.
+- Steam requests carry an age-check cookie, so VR and mature games load without signing in.
+- The Updates tab is now Downloads: active downloads, updates, and every installed app in a compact list (switchable).
+- Optional floating dock in Settings (off by default). Smaller bottom bar labels. Search and Filters shortcuts removed from the home page.
+
 ## 0.23
 - Steam stopped showing games lists to signed-out visitors, which is why linked accounts came up empty. Added **Sign in with Steam** (Steam's own login page, only the session cookie is kept), which brings in the full games list, playtime and achievements. Without signing in you still get the games visible on your profile, plus game, friend and badge counts. The app now tells you why a list is incomplete.
 - Steam games show up in the library with their own filter, playtime and a "Playtime" sort.

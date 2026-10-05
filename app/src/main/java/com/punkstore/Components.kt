@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.shadow
 import coil.compose.AsyncImage
 
 /** Kalan süre: "45 sn" / "3 dk 10 sn" / "1 sa 5 dk" */
@@ -110,7 +111,7 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
     }
     val onClick = {
         when {
-            isSteam -> { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(a.web)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }; Unit }
+            isSteam -> Browser.open(a.web)
             st == DlState.DOWNLOADING || st == DlState.QUEUED -> s.dl.pause(a.pkg)
             st == DlState.PAUSED || st == DlState.FAILED -> s.dl.resume(a.pkg)
             st == DlState.VERIFYING || st == DlState.INSTALLING -> Unit
@@ -122,21 +123,21 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
     val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "p").animateFloat(.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "pa")
     val failed = st == DlState.FAILED
     if (s.design.steam) {
-        val shape = RoundedCornerShape(Steam.corner.dp)
         val brush = when {
             failed -> Brush.verticalGradient(listOf(Color(0xFFA34C25), Color(0xFF7A3418)))
             task != null && st != DlState.DONE -> Brush.verticalGradient(listOf(Color(0xFF2F3B46), Color(0xFF26313B)))
             inst && !upd -> Brush.horizontalGradient(listOf(Steam.panel2, Color(0xFF3D6E8E)))
             else -> Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB))
         }
+        val base = when {
+            failed -> Color(0xFFD1582B)
+            task != null && st != DlState.DONE -> Color(0xFF4A6074)
+            inst && !upd -> Color(0xFF3D86B8)
+            else -> Color(0xFF5CB82A)
+        }
+        val fill = if (prog > 0f) prog else 0f
         Box(
-            modifier.clip(shape).background(brush).drawBehind {
-                if (prog > 0f) {
-                    val w = size.width * prog
-                    drawRect(Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB)), size = androidx.compose.ui.geometry.Size(w, size.height),
-                        alpha = if (st == DlState.VERIFYING || st == DlState.INSTALLING) pulse.value else 1f)
-                }
-            }.gloss().border(1.dp, Color(0x66000000), shape).steamBevel().pressScale(onClick)
+            modifier.liquidGlass(base, onClick, fill = fill)
                 .padding(horizontal = if (compact) 14.dp else 22.dp, vertical = if (compact) 8.dp else 12.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -240,24 +241,31 @@ fun SectionTitle(text: String, s: Store, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun BottomBar(design: Design, tab: Tab, updates: Int, onTab: (Tab) -> Unit) {
+fun BottomBar(design: Design, tab: Tab, updates: Int, floating: Boolean = false, onTab: (Tab) -> Unit) {
     val icons = mapOf(Tab.DISCOVER to (Icons.Filled.Explore to Icons.Outlined.Explore), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search), Tab.STORE to (Icons.Filled.Storefront to Icons.Outlined.Storefront), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search),
-        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.SystemUpdateAlt to Icons.Outlined.SystemUpdateAlt), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person))
+        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.Download to Icons.Outlined.Download), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person))
     if (design.steam) {
-        Row(Modifier.fillMaxWidth().background(Steam.topBrush).navigationBarsPadding().height(58.dp)) {
+        // Steam'deki gibi çubuk biraz yukarıda durur; altta orantılı bir boşluk kalır
+        val dockMod = if (floating) Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp).shadow(10.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(Steam.topBrush).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
+                     else Modifier.fillMaxWidth().background(Steam.topBrush).navigationBarsPadding()
+        Column(dockMod) {
+        Row(Modifier.fillMaxWidth().height(54.dp)) {
             Tab.values().filter { it.bottom }.forEach { t ->
                 val sel = t == tab
                 Column(Modifier.weight(1f).fillMaxHeight().clickable { onTab(t) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Box(Modifier.width(36.dp).height(2.dp).background(if (sel) Steam.btn else Color.Transparent))
-                    Spacer(Modifier.height(6.dp))
-                    BadgedBox({ if (t == Tab.UPDATES && updates > 0) Badge { Text("$updates") } }) { Icon(icons[t]!!.first, t.label, tint = if (sel) Steam.btn else Color(0xFFDDDDDD), modifier = Modifier.size(28.dp)) }
+                    Box(Modifier.width(34.dp).height(2.dp).background(if (sel) Steam.btn else Color.Transparent))
+                    Spacer(Modifier.height(4.dp))
+                    BadgedBox({ if (t == Tab.UPDATES && updates > 0) Badge { Text("$updates") } }) { Icon(icons[t]!!.first, t.label, tint = if (sel) Steam.btn else Color(0xFFDDDDDD), modifier = Modifier.size(24.dp)) }
+                    Text(t.label, color = if (sel) Steam.btn else Color(0xFFAAAAAA), fontSize = 9.sp, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 1.dp))
                 }
             }
+        }
+        if (!floating) Spacer(Modifier.height(10.dp))
         }
     } else {
         NavigationBar {
             Tab.values().filter { it.bottom || it == Tab.SEARCH }.forEach { t ->
-                NavigationBarItem(selected = t == tab, onClick = { onTab(t) }, label = { Text(t.label) },
+                NavigationBarItem(selected = t == tab, onClick = { onTab(t) }, label = { Text(t.label, fontSize = 10.sp, maxLines = 1) },
                     icon = { Icon(if (t == tab) icons[t]!!.first else icons[t]!!.second, t.label) })
             }
         }
@@ -332,5 +340,22 @@ fun DlBar(progress: Float, modifier: Modifier = Modifier, color: Color = Steam.b
         drawRect(Brush.horizontalGradient(listOf(color.copy(alpha = .85f), color)), size = androidx.compose.ui.geometry.Size(end, size.height))
         val x = end * shine
         drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color(0x66FFFFFF), Color.Transparent), x - 40f, x + 40f), size = androidx.compose.ui.geometry.Size(end, size.height))
+    }
+}
+
+/** Alt çubuğun hemen üstünde, her ekranda görünen genel indirme çubuğu. */
+@Composable
+fun DownloadDock(s: Store, onOpen: () -> Unit) {
+    val tasks = s.dl.tasks.values.filter { it.state != DlState.DONE }
+    androidx.compose.animation.AnimatedVisibility(tasks.isNotEmpty(), enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()) {
+        val tk = tasks.firstOrNull { it.state == DlState.DOWNLOADING } ?: tasks.first()
+        val prog by androidx.compose.animation.core.animateFloatAsState(if (tk.state == DlState.INSTALLING || tk.state == DlState.VERIFYING) 1f else tk.progress, androidx.compose.animation.core.tween(250), label = "dock")
+        Column(Modifier.fillMaxWidth().background(Color(0xE61B2838)).clickable(onClick = onOpen)) {
+            DlBar(prog, color = if (tk.state == DlState.FAILED) Color(0xFFA34C25) else Steam.btn, track = Color(0x33FFFFFF))
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(tk.name + if (tasks.size > 1) "  +${tasks.size - 1}" else "", Modifier.weight(1f), color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(dlStatus(tk), color = Steam.dim, fontSize = 11.sp, maxLines = 1)
+            }
+        }
     }
 }

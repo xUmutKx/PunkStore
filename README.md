@@ -22,6 +22,15 @@ It's a fan project I build for fun. It has nothing to do with Valve. Licensed un
 
 **Small stuff.** Wishlist, collections, pinned apps, a Tinder-style Discover screen, levels and achievements, update notifications, backup and restore.
 
+## Screenshots
+
+<p>
+<img src="docs/screenshots/store.png" width="200"> <img src="docs/screenshots/app-page.png" width="200"> <img src="docs/screenshots/search.png" width="200">
+</p>
+<p>
+<img src="docs/screenshots/profile.png" width="200"> <img src="docs/screenshots/splash.png" width="200">
+</p>
+
 ## Themes
 
 - **Steam (default):** the colors of the current Steam mobile app.

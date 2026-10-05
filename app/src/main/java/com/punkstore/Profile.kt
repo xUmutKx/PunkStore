@@ -101,6 +101,7 @@ fun ProfileScreen(s: Store, onOpen: (String) -> Unit, onWishlist: () -> Unit, on
     val inst = s.apps.count { s.isInstalled(it) }
     val top = s.launches.entries.sortedByDescending { it.value }.take(5).mapNotNull { e -> s.byPkg(e.key)?.let { it to e.value } }
     val st = s.design.steam
+    if (st) { SteamProfile(s, onOpen, onWishlist, onSettings, onAchievements, onSteam, onNav); return }
     LazyColumn(Modifier.fillMaxSize().then(if (!st) Modifier.statusBarsPadding() else Modifier)) {
         item {
             Box(Modifier.fillMaxWidth().background(Brush.verticalGradient(coverPresets[s.cover.mod(coverPresets.size)] + MaterialTheme.colorScheme.background)).padding(16.dp)) {
@@ -238,4 +239,45 @@ private fun EditProfile(s: Store, onDone: () -> Unit) {
                 s.libApps.take(40).forEach { a -> FilterChip(a.pkg in show, { if (a.pkg in show) show.remove(a.pkg) else if (show.size < 4) show.add(a.pkg) }, { Text(a.name, maxLines = 1) }) }
             }
         } })
+}
+
+/** Steam mobil "You" sayfası: bordo başlık, kare avatar, üç kutu, mavi düğme, düz satırlar. */
+@Composable
+private fun SteamProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -> Unit, onSettings: () -> Unit, onAchievements: () -> Unit, onSteam: () -> Unit, onNav: (String) -> Unit) {
+    var edit by remember { mutableStateOf(false) }
+    val df = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    val inst = s.apps.count { s.isInstalled(it) }
+    val top = s.launches.entries.sortedByDescending { it.value }.take(5).mapNotNull { e -> s.byPkg(e.key)?.let { it to e.value } }
+    LazyColumn(Modifier.fillMaxSize().background(Steam.panel)) {
+        item {
+            SteamProfileHeader(s.userName, { Avatar(s, 88) }, t("Seviye ${s.level} · ${s.xp} XP · 🔥 ${s.streak}", "Level ${s.level} · ${s.xp} XP · 🔥 ${s.streak}"), t("Profili düzenle", "Edit profile"), null) { edit = true }
+            SteamStats(inst.toString() to t("Kurulu", "Installed"), s.wishlist.size.toString() to t("İstek", "Wishlist"), s.getCount.toString() to t("Yükleme", "Downloads")) { if (it == 1) onWishlist() }
+            Box(Modifier.fillMaxWidth().background(Steam.topBrush).padding(start = 20.dp, end = 20.dp, bottom = 18.dp)) {
+                SteamBigButton(t("Steam hesabı", "Steam account"), Icons.Filled.PersonAdd, onClick = onSteam)
+            }
+            SteamSection(t("İçeriğim", "My content"))
+            SteamRow(t("İstek listesi", "Wishlist"), onClick = onWishlist)
+            SteamRow(t("İstatistikler", "Statistics"), onClick = { onNav("stats") })
+            SteamRow(t("Koleksiyonlar", "Collections"), onClick = { onNav("collections") })
+            SteamRow(t("Rozetler ve başarımlar", "Badges & achievements"), onClick = onAchievements)
+            SteamRow(t("Kütüphane", "Library"), onClick = { onNav("library") })
+            SteamRow(t("Hesap ayrıntıları", "Account details"), t("Ayarlar, Google, kurulum", "Settings, Google, install"), dark = true, onClick = onSettings)
+            SteamRow(t("Hesabı değiştir", "Change account"), s.googleEmail ?: t("Google hesabı bağlı değil", "No Google account"), dark = true, onClick = onSettings)
+            SteamRow(t("Üyelik", "Member since"), df.format(Date(s.joined)), dark = true, chevron = false)
+        }
+        if (s.showcase.isNotEmpty()) {
+            item { SteamSection(t("Vitrin", "Showcase")) }
+            item { androidx.compose.foundation.lazy.LazyRow(Modifier.background(Steam.panel).padding(bottom = 8.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(s.showcase.mapNotNull { s.resolve(it) }) { a -> Column(Modifier.width(150.dp).clickable { onOpen(a.pkg) }) { Capsule(a, Modifier.fillMaxWidth().height(86.dp), 32, Steam.corner); Text(a.name, Modifier.padding(top = 4.dp), fontSize = 12.sp, maxLines = 1, color = Color.White) } }
+            } }
+        }
+        if (top.isNotEmpty()) {
+            item { SteamSection(t("En çok kullandıkların", "Most used")) }
+            items(top, key = { it.first.pkg }) { (a, n) ->
+                SteamRow(a.name, "$n ${t("açılış", "launches")}", onClick = { onOpen(a.pkg) })
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+    if (edit) EditProfile(s) { edit = false }
 }
