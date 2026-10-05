@@ -60,7 +60,10 @@ object Installer {
     /** Google Play dosyalarını (base + split) indirir; toplam ilerleme 0..1. */
     suspend fun downloadPlay(c: Context, pkg: String, files: List<com.aurora.gplayapi.data.models.PlayFile>, onProgress: (Float) -> Unit): List<File> = withContext(Dispatchers.IO) {
         val dir = File(c.cacheDir, "apk/$pkg").apply { deleteRecursively(); mkdirs() }
+        val abis = android.os.Build.SUPPORTED_ABIS.map { it.replace('-', '_') }
+        val abiRe = Regex("(?<![a-z0-9])(arm64_v8a|armeabi_v7a|x86_64|x86)(?![a-z0-9])", RegexOption.IGNORE_CASE)
         val apks = files.filter { it.type == com.aurora.gplayapi.data.models.PlayFile.Type.BASE || it.type == com.aurora.gplayapi.data.models.PlayFile.Type.SPLIT }
+            .filter { f -> val m = abiRe.find(f.name)?.value?.lowercase(); m == null || m in abis }
         check(apks.isNotEmpty()) { t("İndirilebilir dosya yok (ücretli ya da bölgeye kapalı olabilir)", "Nothing to download (may be paid or region-locked)") }
         val total = apks.sumOf { it.size }.coerceAtLeast(1)
         var done = 0L

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -182,13 +183,22 @@ fun SearchScreen(s: Store, onOpen: (String) -> Unit) {
     var filterOpen by remember { mutableStateOf(false) }
     var playRes by remember { mutableStateOf<List<AppItem>>(emptyList()) }
     var steamRes by remember { mutableStateOf<List<AppItem>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
     LaunchedEffect(q) {
-        playRes = emptyList(); steamRes = emptyList()
-        if (q.trim().length >= 2) { kotlinx.coroutines.delay(450); playRes = s.searchPlay(q.trim()); steamRes = s.searchSteamStore(q.trim()); s.noteSearch(q) }
+        val k = q.trim()
+        if (k.length < 2) { playRes = emptyList(); steamRes = emptyList(); busy = false; return@LaunchedEffect }
+        kotlinx.coroutines.delay(180)   // yazmayı bitirmesini bekle; F-Droid sonuçları zaten anında yerelden gelir
+        busy = true
+        kotlinx.coroutines.coroutineScope {
+            val sc = this
+            sc.launch { playRes = s.searchPlay(k) }
+            sc.launch { steamRes = s.searchSteamStore(k) }
+        }
+        busy = false; s.noteSearch(k)
     }
     val res = remember(q, s.apps, playRes, steamRes, s.filters) {
         if (q.isBlank()) (if (s.filters.active) s.filt(s.apps).take(150) else emptyList())
-        else s.filt((s.search(q).take(200) + playRes).distinctBy { it.pkg }) + steamRes
+        else s.filt(Rank.merge(q.trim(), s.search(q).take(200), playRes)) + steamRes
     }
     Column(Modifier.fillMaxSize().then(if (s.design == Design.MATERIAL) Modifier.statusBarsPadding() else Modifier.statusBarsPadding())) {
         Row(Modifier.padding(start = 12.dp, top = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -204,6 +214,7 @@ fun SearchScreen(s: Store, onOpen: (String) -> Unit) {
                 androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(s.searches.toList()) { h -> AssistChip({ q = h }, { Text(h) }) } }
             }
         }
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
         LazyColumn { items(res, key = { it.pkg }) { AppRow(s, it, onOpen) } }
     }
     if (filterOpen) FilterSheet(s) { filterOpen = false }

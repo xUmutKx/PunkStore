@@ -116,7 +116,9 @@ fun Root(s: Store) {
             }
         }
         s.error?.let { e ->
-            Snackbar(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp).padding(bottom = 72.dp)) { Text(e) }
+            LaunchedEffect(e) { kotlinx.coroutines.delay(6000); s.dismissError() }
+            Snackbar(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp).padding(bottom = 72.dp), containerColor = androidx.compose.ui.graphics.Color(0xFF3A1E1E), contentColor = androidx.compose.ui.graphics.Color.White,
+                action = { TextButton({ s.dismissError() }) { Text("OK", color = androidx.compose.ui.graphics.Color(0xFF67C1F5)) } }) { Text(e, color = androidx.compose.ui.graphics.Color.White, maxLines = 6) }
         }
     }
     }

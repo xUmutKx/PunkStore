@@ -1,5 +1,6 @@
 package com.punkstore
 
+import kotlinx.coroutines.async
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.derivedStateOf
@@ -316,6 +317,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     var loading by mutableStateOf(false); private set
     var progress by mutableStateOf(0f); private set
     var error by mutableStateOf<String?>(null); private set
+    fun dismissError() { error = null }
 
     /** pkg -> indirme ilerlemesi (0..1); -1 = kuruluyor */
     val busy = mutableStateMapOf<String, Float>()
@@ -366,9 +368,16 @@ class Store(app: Application) : AndroidViewModel(app) {
     }
 
     /** Google Play'de arama (F-Droid araması yerelde yapılır). */
-    suspend fun searchPlay(q: String): List<AppItem> = runCatching {
-        PlayRepo.search(getApplication(), q).also { addPlay(it) }
-    }.getOrElse { playError = "Google Play: " + (it.message ?: ""); emptyList() }
+    suspend fun searchPlay(q: String): List<AppItem> {
+        val found = runCatching { PlayRepo.search(getApplication(), q) }.getOrElse { playError = "Google Play: " + (it.message ?: ""); emptyList() }
+        // Play aramasında adı tutan yoksa: bilinen/olası paket adlarını doğrudan sorgula
+        val hit = found.any { Rank.score(it, q) >= 400 }
+        val extra: List<AppItem> = if (hit) emptyList() else kotlinx.coroutines.coroutineScope {
+            val sc = this
+            Rank.guesses(q).map { g -> sc.async { runCatching { PlayRepo.detail(getApplication(), g) }.getOrNull() } }.mapNotNull { it.await() }
+        }
+        return (extra + found).distinctBy { it.pkg }.also { addPlay(it) }
+    }
 
     fun refreshInstalled() {
         val pm = getApplication<Application>().packageManager

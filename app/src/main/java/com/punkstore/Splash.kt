@@ -29,23 +29,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-/** Hızlı açılış (~1.3 sn): kurulu uygulamaların gerçek ikonlarından çapraz akan kolaj + patlayarak oturan logo. */
+/** Hızlı açılış (~1.3 sn): katalog görsellerinden çapraz akan kolaj (cihazdaki ikon paketi kullanılmaz) + patlayarak oturan logo. */
 @Composable
 fun SplashOverlay(s: Store, onDone: () -> Unit) {
     val ctx = LocalContext.current
-    var icons by remember { mutableStateOf<List<ImageBitmap>>(emptyList()) }
-    LaunchedEffect(Unit) {
-        icons = withContext(Dispatchers.Default) {
-            val pm = ctx.packageManager
-            val def = pm.defaultActivityIcon.constantState
-            s.installed.keys.filter { it != ctx.packageName && pm.getLaunchIntentForPackage(it) != null }.shuffled().take(60).mapNotNull { p -> runCatching {
-                val ai = pm.getApplicationInfo(p, 0); if (ai.icon == 0) return@runCatching null
-                val d = pm.getApplicationIcon(p); if (d.constantState == def) return@runCatching null
-                val bmp = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
-                d.setBounds(0, 0, 96, 96); d.draw(ACanvas(bmp)); bmp.asImageBitmap()
-            }.getOrNull() }
-        }
-    }
     val covers = remember(s.apps.size) { s.apps.mapNotNull { it.cover ?: it.icon }.shuffled().take(30) + s.steamMap.values.mapNotNull { it.banner.ifBlank { null } }.shuffled().take(10) }
     val drift by rememberInfiniteTransition(label = "d").animateFloat(0f, 1f, infiniteRepeatable(tween(2500, easing = LinearEasing)), label = "dr")
     val logo = remember { Animatable(0f) }
@@ -63,8 +50,8 @@ fun SplashOverlay(s: Store, onDone: () -> Unit) {
                 Column(Modifier.weight(1f).offset(y = ((if (col % 2 == 0) -1 else 1) * drift * 140f - 70f).dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     repeat(9) { r ->
                         val idx = col * 9 + r
-                        val catalog = if (idx % 3 == 2) covers.getOrNull(idx / 3 % maxOf(covers.size, 1)) else null
-                        val bm = if (catalog != null) null else icons.getOrNull(idx % maxOf(icons.size, 1))
+                        val catalog = covers.getOrNull(idx % maxOf(covers.size, 1))
+                        val bm: ImageBitmap? = null
                         val hue = ((col * 9 + r) * 37 % 360).toFloat()
                         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color.hsv(hue, .5f, .55f), Color.hsv((hue + 40) % 360, .6f, .25f))))) {
                             bm?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }

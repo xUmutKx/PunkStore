@@ -1,5 +1,12 @@
 # Punk Store — sürüm notları
 
+## 0.16 (2026-10-05)
+- Arama: yazdıkça canlı (180 ms), Play ve Steam paralel, ilerleme çubuğu; yeni sıralama (Rank.kt: tam ad > önek > kelime > içerir); Play'de bulunamazsa bilinen/olası paket adlarıyla doğrudan sorgu (WhatsApp vb.).
+- İndirme: Play split APK'ları cihaz ABI'sine göre süzülür (-113 hatası).
+- Detay: düğmeler 2 sütunlu düzgün ızgara; gerçek Windows/Apple/Linux/Android logoları (Windows yalnızca Steam); incelemeler sayfanın en altında; Steam Topluluk Pazarı + fiyat karşılaştırma bağlantıları.
+- Hata kutusu: koyu zeminde beyaz yazı, 6 sn sonra kendiliğinden kapanır, OK düğmesi (takılı kalma düzeltildi).
+- Açılış animasyonu cihazdaki ikon paketini kullanmaz (yalnızca katalog görselleri). İkon çarkı %24 küçüldü.
+
 ## 0.15 (2026-10-05)
 - Menü/Profil tekrarları kaldırıldı: MENÜ yalnızca Steam/Ayarlar/Bilgi/Yenile; Başarımlar tek yerde; Profil'den istek listesi/ayarlar satırları çıktı; kısayol satırlarından Keşfet/İndirmeler tekrarları çıktı.
 - Rozetler + Başarımlar tek sayfa ("Rozetler ve Başarımlar", seviye rozeti dahil).
