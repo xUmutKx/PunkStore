@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Punk" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#171A21</item>
+        <item name="android:statusBarColor">#171A21</item>
+        <item name="android:navigationBarColor">#171A21</item>
+    </style>
+</resources>
