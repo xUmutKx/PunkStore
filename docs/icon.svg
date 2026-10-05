@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B6E9E"/><stop offset="1" stop-color="#1D2C5A"/></linearGradient>
+    <linearGradient id="bag" x1="0" y1="38" x2="0" y2="96" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#CFE8FA"/></linearGradient>
+    <clipPath id="c"><rect x="18" y="18" width="72" height="72" rx="16"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect x="0" y="0" width="108" height="108" fill="url(#bg)"/>
+    <g transform="translate(0,-5) translate(54,54) scale(0.64) translate(-54,-54)">
+      <path d="M40,42 C40,14 68,14 68,42" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+      <path d="M22,38 L86,38 Q90,38 90.5,42 L96,92 Q96.3,96 92,96 L16,96 Q11.7,96 12,92 L17.5,42 Q18,38 22,38 Z" fill="url(#bag)"/>
+      <g transform="translate(0,14) translate(54,54) scale(0.62) translate(-54,-54)">
+        <path fill="#1B6E9E" fill-rule="evenodd" d="M82.86,56.90 L89.52,59.84 L86.72,69.00 L79.55,67.72 L72.36,76.45 L74.99,83.25 L66.53,87.75 L62.37,81.77 L51.10,82.86 L48.16,89.52 L39.00,86.72 L40.28,79.55 L31.55,72.36 L24.75,74.99 L20.25,66.53 L26.23,62.37 L25.14,51.10 L18.48,48.16 L21.28,39.00 L28.45,40.28 L35.64,31.55 L33.01,24.75 L41.47,20.25 L45.63,26.23 L56.90,25.14 L59.84,18.48 L69.00,21.28 L67.72,28.45 L76.45,35.64 L83.25,33.01 L87.75,41.47 L81.77,45.63 Z M65,54 A11,11 0 1 0 43,54 A11,11 0 1 0 65,54 Z"/>
+      </g>
+    </g>
+  </g>
+</svg>

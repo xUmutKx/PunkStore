@@ -25,5 +25,6 @@
         </provider>
         <service android:name=".DownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
         <receiver android:name=".InstallReceiver" android:exported="false" />
+        <receiver android:name=".DlActionReceiver" android:exported="false" />
     </application>
 </manifest>

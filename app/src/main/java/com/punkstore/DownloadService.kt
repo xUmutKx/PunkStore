@@ -21,7 +21,7 @@ class DownloadService : Service() {
     override fun onBind(i: Intent?): IBinder? = null
     override fun onStartCommand(i: Intent?, flags: Int, startId: Int): Int {
         channel(this)
-        val n = build(this, null, "Punk Store", t("İndirme başlıyor…", "Starting download…"), -1)
+        val n = build(this, null, "Punk Store", t("İndirmeler sürüyor", "Downloads in progress"), -1)
         if (android.os.Build.VERSION.SDK_INT >= 29) startForeground(2, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(2, n)
         return START_NOT_STICKY
     }
@@ -36,9 +36,8 @@ class DownloadService : Service() {
                 .setProgress(100, pct.coerceAtLeast(0), pct < 0).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(pi).build()
         }
         private fun canNotify(c: Context) = android.os.Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(c, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        private var last = -1
         fun start(c: Context) { runCatching { ContextCompat.startForegroundService(c, Intent(c, DownloadService::class.java)) } }
-        fun stop(c: Context) { c.stopService(Intent(c, DownloadService::class.java)); last = -1 }
+        fun stop(c: Context) { c.stopService(Intent(c, DownloadService::class.java)) }
 
         /** Uygulamanın ikonunu bildirim için bir kez yükler (katalog görseli ya da kuruluysa sistem ikonu). */
         suspend fun loadIcon(c: Context, a: AppItem) {
@@ -49,12 +48,23 @@ class DownloadService : Service() {
             }
         }
 
-        fun progress(c: Context, pkg: String, name: String, pct: Int) {
-            if (pct == last || !canNotify(c)) return; last = pct
-            c.getSystemService(NotificationManager::class.java).notify(2, build(c, pkg, name, t("İndiriliyor  %$pct", "Downloading  $pct%"), pct))
+        private fun action(c: Context, act: String, pkg: String) = PendingIntent.getBroadcast(c, (act + pkg).hashCode(), Intent(c, DlActionReceiver::class.java).setAction(act).putExtra("pkg", pkg), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        private val lastPct = mutableMapOf<String, Int>()
+
+        /** Uygulama başına ilerleme bildirimi: yüzde, hız, kalan süre + Duraklat / İptal. */
+        fun progress(c: Context, pkg: String, name: String, pct: Int, speed: Long = 0, eta: Long = -1) {
+            if (!canNotify(c) || lastPct[pkg] == pct && speed == 0L) return; lastPct[pkg] = pct
+            val pi = PendingIntent.getActivity(c, 0, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+            val txt = buildString { append("%$pct"); if (speed > 0) append("  ·  ${sizeText(speed)}/s"); if (eta >= 0) append("  ·  ${etaText(eta)}") }
+            c.getSystemService(NotificationManager::class.java).notify(pkg.hashCode(), NotificationCompat.Builder(c, "downloads")
+                .setSmallIcon(android.R.drawable.stat_sys_download).setLargeIcon(icons[pkg]).setContentTitle(name).setContentText(txt).setSubText("Punk Store")
+                .setProgress(100, pct.coerceIn(0, 100), false).setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setContentIntent(pi)
+                .addAction(0, t("Duraklat", "Pause"), action(c, "punk.PAUSE", pkg)).addAction(0, t("İptal", "Cancel"), action(c, "punk.CANCEL", pkg)).build())
         }
+        fun clear(c: Context, pkg: String) { lastPct.remove(pkg); c.getSystemService(NotificationManager::class.java).cancel(pkg.hashCode()) }
         /** Bitti (err == null) ya da hata bildirimi */
         fun done(c: Context, pkg: String, name: String, err: String?) {
+            lastPct.remove(pkg)
             if (!canNotify(c)) return
             channel(c)
             val pi = PendingIntent.getActivity(c, 0, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)

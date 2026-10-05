@@ -1,5 +1,14 @@
 # Punk Store — sürüm notları
 
+## 0.22 (2026-10-05)
+- **Yeni indirme motoru** (`Downloads.kt`): kuyruk (aynı anda 2), `.part` + HTTP Range ile kaldığı yerden devam, duraklat / sürdür / iptal, ağ hatasında 4 kez üstel beklemeli yeniden deneme, boş alan denetimi, boyut + SHA-256 doğrulaması (F-Droid hex, Play base64), kurulum sonucu PackageInstaller'dan okunur (iptal / imza çakışması / yetersiz alan anlaşılır mesajla), yarım kalan indirmeler sonraki açılışta "Duraklatıldı" olarak geri gelir, kurulum iptal edilirse APK silinmez (yeniden indirmeden tekrar dene).
+- Bildirim: uygulama başına ilerleme, hız, kalan süre; **Duraklat** ve **İptal** düğmeleri.
+- İndir düğmesi: içi soldan sağa dolar, durum yazısı kayarak değişir (Sırada → %42 → Doğrulanıyor → Kuruluyor → ✓ Kuruldu), dokununca duraklat/devam, hata olursa kırmızı "Tekrar dene". Altında "12,3 / 45,6 MB · 2,1 MB/s · 15 sn kaldı" satırı.
+- İndirmeler sayfası: kuyruk kartları, tümünü duraklat / sürdür, bitenleri temizle.
+- **Kütüphane Steam gibi** (`Library.kt`): "Son oynanan" büyük kartı + son oynananlar şeridi, sayılı filtre çipleri (Tümü / Kurulu / Kurulu değil / Güncellemeler / İndirilenler / Sabitlenen / Oynanan / Oyunlar / F-Droid / Play / Steam / Cihaz / koleksiyonlar), açılır-kapanır gruplar (İndirilenler, Güncelleme bekleyenler, Kurulu, Kurulu değil), ızgara ↔ liste görünümü, 5 sıralama (son oynanan, A-Z, en çok açılan, son güncellenen, boyut), tümünü güncelle, uzun basınca menü (aç, yükle/güncelle, sabitle, koleksiyon, kütüphaneden çıkar, kaldır, uygulama bilgisi). Katalogda olmayan kurulu uygulamalar da "Cihaz" olarak listelenir (kendi ikonlarıyla). Punk Store'dan kurulan her şey kütüphaneye otomatik eklenir.
+- Animasyonlar: sekmeler arası yöne göre kayma, uygulama sayfası sağdan kayarak açılır, basınca yaylanan düğme/kartlar, liste öğeleri yer değiştirirken akar.
+- İkon: poşet yukarı alındı (üstteki boşluk giderildi, dikeyde ortalı).
+
 ## 0.16 (2026-10-05)
 - Arama: yazdıkça canlı (180 ms), Play ve Steam paralel, ilerleme çubuğu; yeni sıralama (Rank.kt: tam ad > önek > kelime > içerir); Play'de bulunamazsa bilinen/olası paket adlarıyla doğrudan sorgu (WhatsApp vb.).
 - İndirme: Play split APK'ları cihaz ABI'sine göre süzülür (-113 hatası).

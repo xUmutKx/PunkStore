@@ -209,58 +209,6 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
 }
 
 // ---------------- KÜTÜPHANE: dikey kapak ızgarası ----------------
-@Composable
-fun SteamLibrary(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {}) {
-    var sort by remember { mutableIntStateOf(0) }
-    var menu by remember { mutableStateOf(false) }
-    var q by remember { mutableStateOf("") }
-    val names = listOf(t("Son eklenen", "Recent"), t("A-Z", "A-Z"), t("En çok açılan", "Most played"), t("Güncellenen", "Updated"))
-    val list = remember(s.apps, s.installed.toMap(), s.libAdded.toList(), s.pins.toList(), sort, q, s.launches.toMap()) {
-        s.libApps.filter { it.name.contains(q, true) }.let { l -> when (sort) { 1 -> l.sortedBy { it.name.lowercase() }; 2 -> l.sortedByDescending { s.launches[it.pkg] ?: 0 }; 3 -> l.sortedByDescending { it.updated }; else -> l }.sortedByDescending { it.pkg in s.pins } }
-    }
-    Column(Modifier.fillMaxSize().background(if (Steam.carbon) Color.Transparent else Steam.bg)) {
-        Row(Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(t("KÜTÜPHANE", "LIBRARY"), Modifier.weight(1f), color = W, fontSize = 20.sp, letterSpacing = 2.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { QuickRow(QA_LIBRARY, onNav) }
-            item {
-                Row(Modifier.fillMaxWidth().height(50.dp).background(Steam.panel).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.foundation.text.BasicTextField(q, { q = it }, Modifier.weight(1f), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = W, fontSize = 16.sp), cursorBrush = androidx.compose.ui.graphics.SolidColor(W),
-                        decorationBox = { inner -> Box { if (q.isEmpty()) Text(t("Kütüphanede ara", "Search library"), color = Steam.dim); inner() } })
-                    Icon(Icons.Filled.Search, null, tint = Steam.text)
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(t("SIRALA:", "SORT BY:"), color = Steam.text, fontSize = 16.sp, letterSpacing = 1.sp); Spacer(Modifier.width(10.dp))
-                    Box(Modifier.weight(1f)) {
-                        Row(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.btn).clickable { menu = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(names[sort], Modifier.weight(1f), color = W, fontWeight = FontWeight.Bold, fontSize = 18.sp); Icon(Icons.Filled.KeyboardArrowDown, null, tint = W)
-                        }
-                        DropdownMenu(menu, { menu = false }) { names.forEachIndexed { i, n -> DropdownMenuItem({ Text(n) }, { sort = i; menu = false }) } }
-                    }
-                }
-                val upd = list.count { s.hasUpdate(it) }
-                if (upd > 0) Text(t("$upd güncelleme bekliyor", "$upd updates pending"), Modifier.padding(top = 10.dp), color = Steam.greenA, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                if (list.isEmpty()) Text(t("Kütüphane boş. Bir uygulamanın sayfasından 'Kütüphaneye ekle' de.", "Your library is empty. Use 'Add to library' on an app page."), Modifier.padding(top = 20.dp), color = Steam.dim)
-            }
-            items(list.chunked(3)) { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { a ->
-                        Box(Modifier.weight(1f).aspectRatio(.67f).clip(RoundedCornerShape(Steam.corner.dp)).clickable { onOpen(a.pkg) }) {
-                            Banner(a, Modifier.fillMaxSize(), icon = 0)
-                            Column(Modifier.align(Alignment.BottomStart).padding(6.dp)) { AppIcon(a, 36, 6); Text(a.name, color = W, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp)) }
-                            val tag = when { !s.isInstalled(a) -> t("YÜKLE", "INSTALL") to Steam.btn; s.hasUpdate(a) -> t("GÜNCELLE", "UPDATE") to Steam.greenA; else -> null }
-                            tag?.let { Text(it.first, Modifier.align(Alignment.TopEnd).background(it.second).padding(horizontal = 6.dp, vertical = 2.dp), color = W, fontSize = 10.sp, fontWeight = FontWeight.Black) }
-                        }
-                    }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-        }
-    }
-}
-
 // ---------------- GÜNCELLEMELER (zil sekmesi) ----------------
 @Composable
 fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {}) {
@@ -360,15 +308,6 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
                     Row { Text("GOOGLE PLAY: ", color = Steam.dim, fontSize = 15.sp); Text(label, color = col, fontSize = 15.sp); Text(String.format(" (%d%% · ★ %.1f)", pct, a.rating), color = Steam.dim, fontSize = 15.sp) }
                 } else Row { Text(if (a.source == "FDROID") t("AÇIK KAYNAK: ", "OPEN SOURCE: ") else t("PUAN: ", "RATING: "), color = Steam.dim, fontSize = 15.sp); Text(a.license.ifBlank { t("henüz yok", "none yet") }, color = Steam.link, fontSize = 15.sp) }
             }
-            // ---- GİZLİLİK RAPORU
-            if (a.source != "STEAM") {
-                Text(t("GİZLİLİK RAPORU", "PRIVACY REPORT"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(14.dp)) {
-                    Text((if (a.ads) "⚠ " + t("Reklam içeriyor", "Contains ads") else "✓ " + t("Reklam yok", "No ads")), color = Steam.text, fontSize = 14.sp)
-                    Text((if (a.tracking) "⚠ " + t("İzleyici içeriyor", "Contains trackers") else "✓ " + t("İzleyici bildirilmemiş", "No trackers reported")), Modifier.padding(top = 4.dp), color = Steam.text, fontSize = 14.sp)
-                    Text("Exodus Privacy " + t("raporunu aç →", "report →"), Modifier.padding(top = 8.dp).clickable { web("https://reports.exodus-privacy.eu.org/en/reports/search/${a.pkg}/") }, color = Steam.link, fontSize = 14.sp)
-                }
-            }
             // ---- GÖRSELLER (kaydırmalı)
             if (gal.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
@@ -401,11 +340,11 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
             }
             Spacer(Modifier.height(18.dp))
             // ---- İSTEK LİSTESİ (tam genişlik) + eylemler (ikonlu)
-            Text(if (s.isWished(a)) t("♥ İstek listende", "♥ On your wishlist") else t("İstek listene ekle", "Add to your wishlist"), Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable { s.toggleWish(a) }.padding(vertical = 14.dp), color = Steam.link, fontSize = 18.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(if (s.isWished(a)) t("♥ İstek listende", "♥ On your wishlist") else t("İstek listene ekle", "Add to your wishlist"), Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable { s.toggleWish(a) }.padding(vertical = 9.dp), color = Steam.link, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Spacer(Modifier.height(10.dp))
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 2) {
-                @Composable fun Chip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) = Row(Modifier.weight(1f).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, tint = Steam.link, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(label, color = Steam.link, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp), maxItemsInEachRow = 2) {
+                @Composable fun Chip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) = Row(Modifier.weight(1f).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, tint = Steam.link, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(5.dp)); Text(label, color = Steam.link, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (!s.isInstalled(a)) Chip(Icons.Filled.VideogameAsset, if (a.pkg in s.libAdded) t("Kütüphanede ✓", "In library ✓") else t("Kütüphaneye ekle", "Add to library")) { s.toggleLibrary(a) }
                 if (s.isInstalled(a)) Chip(Icons.Filled.Delete, t("Kaldır", "Uninstall")) { s.uninstall(ctx, a.pkg) }
@@ -414,11 +353,11 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
                 if (a.web.isNotBlank()) Chip(Icons.Filled.OpenInBrowser, t("Web'de aç", "Open web")) { web(a.web) }
                 Chip(Icons.Filled.Share, t("Paylaş", "Share")) { ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, "${a.name} — " + (if (a.source == "STEAM") a.web else "https://play.google.com/store/apps/details?id=${a.pkg}")), null)) }
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(28.dp))
             // "Satın al" paneli = Yükle
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Brush.verticalGradient(Steam.buy)).gloss().padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Brush.verticalGradient(Steam.buy)).gloss().padding(18.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
-                    Text((if (a.source == "STEAM") t("Steam'de: ", "On Steam: ") else t("Yükle: ", "Get ")) + a.name, Modifier.weight(1f), color = W, fontSize = 24.sp, lineHeight = 28.sp)
+                    Text((if (a.source == "STEAM") t("Steam'de: ", "On Steam: ") else t("Yükle: ", "Get ")) + a.name, Modifier.weight(1f), color = W, fontSize = 22.sp, lineHeight = 27.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (a.source == "STEAM") {
                             val pl = a.extra["platforms"].orEmpty()
@@ -430,14 +369,22 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
                     }
                 }
                 Text(sizeText(a.apkSize).let { if (it.isBlank()) "" else t("Boyut: ", "Size: ") + it }, color = Steam.link, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    PriceTag(a, Modifier.height(44.dp)); Spacer(Modifier.width(8.dp))
-                    ActionButton(s, a, Modifier.weight(1f, fill = false))
+                Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PriceTag(a, Modifier.height(52.dp))
+                    ActionButton(s, a, Modifier.weight(1f).heightIn(min = 52.dp))
+                }
+                DownloadLine(s, a.pkg)
+            }
+            if (s.launches[a.pkg] != null) Text(t("Açılış: ${s.launches[a.pkg]} kez", "Launched ${s.launches[a.pkg]} times"), Modifier.padding(top = 8.dp), color = Steam.dim, fontSize = 13.sp)
+            // ---- GİZLİLİK RAPORU
+            if (a.source != "STEAM") {
+                Text(t("GİZLİLİK RAPORU", "PRIVACY REPORT"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(14.dp)) {
+                    Text((if (a.ads) "⚠ " + t("Reklam içeriyor", "Contains ads") else "✓ " + t("Reklam yok", "No ads")), color = Steam.text, fontSize = 14.sp)
+                    Text((if (a.tracking) "⚠ " + t("İzleyici içeriyor", "Contains trackers") else "✓ " + t("İzleyici bildirilmemiş", "No trackers reported")), Modifier.padding(top = 4.dp), color = Steam.text, fontSize = 14.sp)
+                    Text("Exodus Privacy " + t("raporunu aç →", "report →"), Modifier.padding(top = 8.dp).clickable { web("https://reports.exodus-privacy.eu.org/en/reports/search/${a.pkg}/") }, color = Steam.link, fontSize = 14.sp)
                 }
             }
-            val p = s.busy[a.pkg]
-            if (p != null) DlBar(if (p < 0) 1f else p, Modifier.padding(top = 8.dp))
-            if (s.launches[a.pkg] != null) Text(t("Açılış: ${s.launches[a.pkg]} kez", "Launched ${s.launches[a.pkg]} times"), Modifier.padding(top = 8.dp), color = Steam.dim, fontSize = 13.sp)
             val rv = s.reviews[a.pkg]
             if (a.source != "FDROID" && (rv?.isEmpty() != true || s.reviewErr[a.pkg] != null)) {
                 Text(t("KULLANICI İNCELEMELERİ", "USER REVIEWS"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)

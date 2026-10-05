@@ -1,5 +1,6 @@
 package com.punkstore
 
+import coil.imageLoader
 import kotlinx.coroutines.async
 import android.app.Application
 import android.content.Context
@@ -73,7 +74,8 @@ class Store(app: Application) : AndroidViewModel(app) {
     fun resolve(p: String): AppItem? = byPkg(p) ?: prefs.getString("wm_$p", null)?.split('\u0001')?.let { f ->
         AppItem(p, f[0], f.getOrElse(2) { "" }, icon = f.getOrNull(1)?.ifEmpty { null }, banner = f.getOrElse(3) { "" }, source = f.getOrElse(4) { "PLAY" }, price = f.getOrElse(5) { "" }, discount = f.getOrElse(6) { "0" }.toIntOrNull() ?: 0, web = f.getOrElse(7) { "" })
     }
-    val libApps: List<AppItem> get() = (libAdded.mapNotNull { resolve(it) } + apps.filter { isInstalled(it) && it.pkg !in libAdded }).distinctBy { it.pkg }
+    /** Kütüphane: elle eklenenler + katalogdaki kurulu uygulamalar + katalog dışı kurulu uygulamalar (Cihaz). */
+    val libApps: List<AppItem> get() = (libAdded.mapNotNull { resolve(it) } + apps.filter { isInstalled(it) && it.pkg !in libAdded } + localApps).distinctBy { it.pkg }
 
     fun isWished(a: AppItem) = a.pkg in wishlist
     fun toggleWish(a: AppItem) {
@@ -85,8 +87,14 @@ class Store(app: Application) : AndroidViewModel(app) {
     val launches = mutableStateMapOf<String, Int>().apply {
         (prefs.getString("launches", "") ?: "").split(',').filter { it.contains(':') }.forEach { put(it.substringBefore(':'), it.substringAfter(':').toIntOrNull() ?: 0) }
     }
+    /** Son açılış zamanı (Steam "son oynanan") */
+    val lastPlayed = mutableStateMapOf<String, Long>().apply {
+        (prefs.getString("lastPlayed", "") ?: "").split(',').filter { it.contains(':') }.forEach { put(it.substringBefore(':'), it.substringAfter(':').toLongOrNull() ?: 0L) }
+    }
     fun noteLaunch(pkg: String) {
         launches[pkg] = (launches[pkg] ?: 0) + 1
+        lastPlayed[pkg] = System.currentTimeMillis()
+        prefs.edit().putString("lastPlayed", lastPlayed.entries.sortedByDescending { it.value }.take(200).joinToString(",") { "${it.key}:${it.value}" }).apply()
         prefs.edit().putString("launches", launches.entries.joinToString(",") { "${it.key}:${it.value}" }).apply()
     }
     val getCount: Int get() = prefs.getInt("gets", 0)
@@ -212,8 +220,8 @@ class Store(app: Application) : AndroidViewModel(app) {
     val steamMap = mutableStateMapOf<String, AppItem>()
     var steamLists by mutableStateOf<Map<String, List<AppItem>>>(emptyMap()); private set
     var steamErr by mutableStateOf<String?>(null); private set
-    fun loadSteamStore() { viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamLists = m; steamErr = null }.onFailure { steamErr = it.message } } }
-    suspend fun searchSteamStore(q: String): List<AppItem> = runCatching { SteamStoreApi.search(q).onEach { steamMap.putIfAbsent(it.pkg, it) } }.getOrDefault(emptyList())
+    fun loadSteamStore() { viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamLists = m; saveExtra(); steamErr = null }.onFailure { steamErr = it.message } } }
+    suspend fun searchSteamStore(q: String): List<AppItem> = runCatching { SteamStoreApi.search(q).onEach { steamMap.putIfAbsent(it.pkg, it) }.also { saveExtra() } }.getOrDefault(emptyList())
     val reviews = mutableStateMapOf<String, List<UserReview>>()
     fun loadReviews(a: AppItem, force: Boolean = false) { if ((a.pkg in reviews && !force) || a.source == "FDROID") return; reviewErr.remove(a.pkg); reviews.remove(a.pkg); viewModelScope.launch { runCatching { if (a.source == "STEAM") SteamStoreApi.reviews(a) else PlayRepo.reviews(getApplication(), a.pkg) }.onSuccess { reviews[a.pkg] = it }.onFailure { reviewErr[a.pkg] = it.message ?: it.javaClass.simpleName; reviews[a.pkg] = emptyList() } } }
     fun enrichSteam(a: AppItem) { if (a.review.isNotBlank() || a.description.isNotBlank()) return; viewModelScope.launch { runCatching { SteamStoreApi.details(a) }.onSuccess { d ->
@@ -322,17 +330,22 @@ class Store(app: Application) : AndroidViewModel(app) {
     /** pkg -> indirme ilerlemesi (0..1); -1 = kuruluyor */
     val busy = mutableStateMapOf<String, Float>()
     val installed = mutableStateMapOf<String, Long>()
+    val dl = DownloadQueue(this)
+    var localApps by mutableStateOf<List<AppItem>>(emptyList()); private set
+    private var localJob: kotlinx.coroutines.Job? = null
 
     init {
         PlayRepo.customDispenser = dispenser
         Steam.pal = palFor(design); Steam.material = !design.steam
         I18n.pref = runCatching { LangPref.valueOf(prefs.getString("lang", "AUTO")!!) }.getOrDefault(LangPref.AUTO)
         FdroidRepo.cached(app)?.let { fdroid = it }
+        loadExtra()
         refreshInstalled()
         if (fdroid.isEmpty() || FdroidRepo.cacheAgeMs(app) > 24 * 3600_000L) refresh()
         loadPlay()
         loadSteamStore()
         checkUpdates()
+        dl.restore()
         run { val today = System.currentTimeMillis() / 86400000L; val last = prefs.getLong("lastDay", 0L); var st = prefs.getInt("streak", 0)
             if (today != last) { st = if (today == last + 1) st + 1 else 1; prefs.edit().putLong("lastDay", today).putInt("streak", st).apply() }; streak = st }
     }
@@ -349,7 +362,40 @@ class Store(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun addPlay(l: List<AppItem>) { playMap = playMap + l.associateBy { it.pkg } }
+    /** Açılış animasyonu görselleri: arka planda indirilip önbelleğe alınır; yalnızca gerçekten inenler kaydedilir. */
+    val splashUrls: List<String> get() = (prefs.getString("splashUrls", "") ?: "").split("\n").filter { it.startsWith("http") }
+    private var splashPrepared = false
+    fun prepareSplash() {
+        if (splashPrepared || apps.size < 100) return
+        splashPrepared = true
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val pool = (apps.mapNotNull { it.cover ?: it.icon } + steamMap.values.mapNotNull { it.banner.ifBlank { null } }).filter { it.startsWith("http") }.distinct().shuffled().take(120)
+            val ok = java.util.Collections.synchronizedList(mutableListOf<String>())
+            pool.chunked(12).forEach { ch -> ch.map { u -> async(kotlinx.coroutines.Dispatchers.IO) {
+                val r = ctx.imageLoader.execute(coil.request.ImageRequest.Builder(ctx).data(u).size(256).build())
+                if (r is coil.request.SuccessResult) ok.add(u) } }.forEach { runCatching { it.await() } } }
+            if (ok.size >= 40) prefs.edit().putString("splashUrls", ok.joinToString("\n")).apply()
+        }
+    }
+
+    private fun addPlay(l: List<AppItem>) { playMap = playMap + l.associateBy { it.pkg }; saveExtra() }
+
+    /** Play + Steam'den gelen sonuçlar yenilemede kaybolmasın: diske yaz, açılışta geri yükle. */
+    private val extraFile get() = java.io.File(getApplication<Application>().filesDir, "extra-cache.json")
+    private var saveJob: kotlinx.coroutines.Job? = null
+    private fun saveExtra() {
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.delay(1500)
+            runCatching { extraFile.writeText(json.encodeToString(kotlinx.serialization.builtins.ListSerializer(AppItem.serializer()), (playMap.values + steamMap.values).take(8000).map { it.copy(description = it.description.take(600)) })) }
+        }
+    }
+    private fun loadExtra() = runCatching {
+        val l = json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(AppItem.serializer()), extraFile.readText())
+        l.filter { it.source == "STEAM" }.forEach { steamMap[it.pkg] = it }
+        playMap = l.filter { it.source != "STEAM" }.associateBy { it.pkg }
+    }
 
     /** Google Play üst listeleri + kurulu uygulamaların güncelleme denetimi. */
     fun loadPlay() {
@@ -360,6 +406,9 @@ class Store(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val top = PlayRepo.chart(ctx, false); playTop = top; addPlay(top)
                 val g = PlayRepo.chart(ctx, true); playGames = g; addPlay(g)
+                // daha fazla uygulama: diğer listeler (çok satan ücretli, trend, en çok kazanan)
+                for (games in listOf(false, true)) for (ch in listOf(com.aurora.gplayapi.helpers.contracts.TopChartsContract.Chart.TOP_GROSSING, com.aurora.gplayapi.helpers.contracts.TopChartsContract.Chart.MOVERS_SHAKERS, com.aurora.gplayapi.helpers.contracts.TopChartsContract.Chart.TOP_SELLING_PAID))
+                    runCatching { addPlay(PlayRepo.chart(ctx, games, ch)) }
                 val mine = installed.keys.filter { k -> fdroid.none { it.pkg == k } && !k.startsWith("com.android.") && !k.startsWith("android") }
                 mine.chunked(40).forEach { addPlay(PlayRepo.details(ctx, it)) }
             }.onFailure { playError = "Google Play: " + (it.message ?: t("Bilinmeyen hata", "Unknown error")) }
@@ -381,38 +430,47 @@ class Store(app: Application) : AndroidViewModel(app) {
 
     fun refreshInstalled() {
         val pm = getApplication<Application>().packageManager
-        installed.clear()
-        pm.getInstalledPackages(0).forEach { installed[it.packageName] = it.longVersionCode }
+        val now = pm.getInstalledPackages(0).associate { it.packageName to it.longVersionCode }
+        installed.keys.retainAll(now.keys); installed.putAll(now)
+        loadLocal()
+    }
+
+    /** Katalogda olmayan, kullanıcının kurduğu (sistem dışı, açılabilir) uygulamalar: kütüphanede "Cihaz" kaynağıyla. */
+    private fun loadLocal() {
+        localJob?.cancel()
+        localJob = viewModelScope.launch {
+            localApps = withContext(Dispatchers.IO) {
+                val pm = getApplication<Application>().packageManager
+                runCatching {
+                    pm.getInstalledApplications(0).filter { ai -> ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 && ai.packageName != getApplication<Application>().packageName && pm.getLaunchIntentForPackage(ai.packageName) != null }
+                        .map { ai -> AppItem(ai.packageName, pm.getApplicationLabel(ai).toString(), source = "LOCAL", versionCode = installed[ai.packageName] ?: 0,
+                            updated = runCatching { pm.getPackageInfo(ai.packageName, 0).lastUpdateTime }.getOrDefault(0L), apkSize = runCatching { java.io.File(ai.sourceDir).length() }.getOrDefault(0L)) }
+                        .sortedBy { it.name.lowercase() }
+                }.getOrDefault(emptyList())
+            }
+        }
     }
 
     fun isInstalled(a: AppItem) = installed.containsKey(a.pkg)
     fun hasUpdate(a: AppItem) = a.pkg !in ignored && installed[a.pkg]?.let { it < a.versionCode } == true
     fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg]
+    /** Bilinen her kaynaktan (katalog, kayıtlı, cihaz) */
+    fun anyPkg(pkg: String) = byPkg(pkg) ?: resolve(pkg) ?: localApps.firstOrNull { it.pkg == pkg }
 
+    /** İndir + kur: kuyruğa alır (devam ettirme, yeniden deneme, doğrulama Downloads.kt'de). */
     fun getOrUpdate(a: AppItem, ctx: Context) {
-        if (busy.containsKey(a.pkg)) return
+        dl[a.pkg]?.let { if (it.active) return; if (it.state == DlState.PAUSED || it.state == DlState.FAILED) { dl.resume(a.pkg); return } }
         if (Cfg.wifiOnly(ctx) && !Cfg.wifiOk(ctx)) { error = t("Yalnızca Wi-Fi'de indirme açık", "Wi-Fi only downloads is on"); return }
         if (method != InstallMethod.ROOT && !Installer.canInstall(ctx)) { Installer.askPermission(ctx); return }
-        busy[a.pkg] = 0f
-        DownloadService.start(ctx)
-        viewModelScope.launch { DownloadService.loadIcon(ctx, a) }
-        viewModelScope.launch {
-            runCatching {
-                if (a.source == "PLAY") {
-                    val files = PlayRepo.files(ctx, a)
-                    val fs = Installer.downloadPlay(ctx, a.pkg, files) { busy[a.pkg] = it; DownloadService.progress(ctx, a.pkg, a.name, (it * 100).toInt()) }
-                    busy[a.pkg] = -1f
-                    withContext(Dispatchers.IO) { Installer.installMany(ctx, fs) }; noteGet(); noteHistory(a)
-                } else {
-                    val f = Installer.download(ctx, a) { busy[a.pkg] = it; DownloadService.progress(ctx, a.pkg, a.name, (it * 100).toInt()) }
-                    busy[a.pkg] = -1f
-                    withContext(Dispatchers.IO) { Installer.install(ctx, f) }; noteGet(); noteHistory(a)
-                }
-                DownloadService.done(ctx, a.pkg, a.name, null)
-            }.onFailure { error = "${a.name}: ${it.message}"; DownloadService.done(ctx, a.pkg, a.name, it.message ?: "error") }
-            busy.remove(a.pkg); refreshInstalled()
-            if (busy.isEmpty()) DownloadService.stop(ctx)
-        }
+        remember(a)
+        dl.enqueue(a)
+    }
+    fun report(msg: String) { error = msg }
+    /** Kurulum bitti: kütüphaneye ekle (Steam gibi), geçmiş, istatistik. */
+    fun onInstalled(a: AppItem) {
+        noteGet(); noteHistory(a)
+        if (a.pkg !in libAdded) { libAdded.add(0, a.pkg); prefs.edit().putString("lib", libAdded.joinToString(",")).apply() }
+        refreshInstalled()
     }
 
     // Keşif listeleri

@@ -177,10 +177,11 @@ fun CategoryScreen(s: Store, cat: String, onOpen: (String) -> Unit, onBack: () -
     }
 }
 
+/** Canlı arama: F-Droid yerelden anında, Play + Steam ağdan; boş sorguda (browse) yalnızca filtrelere göre liste. */
+class SearchState(val res: List<AppItem>, val busy: Boolean)
+
 @Composable
-fun SearchScreen(s: Store, onOpen: (String) -> Unit) {
-    var q by remember { mutableStateOf("") }
-    var filterOpen by remember { mutableStateOf(false) }
+fun rememberSearch(s: Store, q: String, browse: Boolean): SearchState {
     var playRes by remember { mutableStateOf<List<AppItem>>(emptyList()) }
     var steamRes by remember { mutableStateOf<List<AppItem>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -196,17 +197,29 @@ fun SearchScreen(s: Store, onOpen: (String) -> Unit) {
         }
         busy = false; s.noteSearch(k)
     }
-    val res = remember(q, s.apps, playRes, steamRes, s.filters) {
-        if (q.isBlank()) (if (s.filters.active) s.filt(s.apps).take(150) else emptyList())
+    val res = remember(q, s.apps, playRes, steamRes, s.filters, browse) {
+        if (q.isBlank()) (if (browse || s.filters.active) s.filt(s.apps).take(150) else emptyList())
         else s.filt(Rank.merge(q.trim(), s.search(q).take(200), playRes)) + steamRes
     }
-    Column(Modifier.fillMaxSize().then(if (s.design == Design.MATERIAL) Modifier.statusBarsPadding() else Modifier.statusBarsPadding())) {
+    return SearchState(res, busy)
+}
+
+@Composable
+fun SearchScreen(s: Store, onOpen: (String) -> Unit) {
+    var q by remember { mutableStateOf("") }
+    var browse by remember { mutableStateOf(false) }
+    var filterOpen by remember { mutableStateOf(false) }
+    val st = rememberSearch(s, q, browse); val res = st.res; val busy = st.busy
+    LaunchedEffect(q) { if (q.isNotBlank()) browse = false }
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.padding(start = 12.dp, top = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(q, { q = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text(t("Ara", "Search")) },
-                leadingIcon = { Icon(Icons.Filled.Search, null) }, shape = RoundedCornerShape(if (s.design.steam) Steam.corner.dp else 28.dp))
+                leadingIcon = { Icon(Icons.Filled.Search, null) }, shape = RoundedCornerShape(if (s.design.steam) Steam.corner.dp else 28.dp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { if (q.isBlank()) browse = true }))
             FilterButton(s) { filterOpen = true }
         }
-        if (s.filters.active) Text(t("${res.size} sonuç · filtre açık", "${res.size} results · filters on"), Modifier.padding(16.dp, 6.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (s.filters.active || browse) Text(t("${res.size} sonuç" + if (s.filters.active) " · filtre açık" else "", "${res.size} results" + if (s.filters.active) " · filters on" else ""), Modifier.padding(16.dp, 6.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else if (q.isBlank()) {
             Text(t("F-Droid · Google Play · Steam", "F-Droid · Google Play · Steam"), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (s.searches.isNotEmpty()) {
@@ -367,6 +380,7 @@ fun DetailScreen(s: Store, a: AppItem, onBack: () -> Unit) {
                     Text(t("Sürüm", "Version") + " ${a.versionName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ActionButton(s, a)
+                DownloadLine(s, a.pkg)
             }
             val ctx = androidx.compose.ui.platform.LocalContext.current
             Row(Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

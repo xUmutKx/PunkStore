@@ -77,16 +77,29 @@ fun FeatureScreen(s: Store, kind: String, onOpen: (String) -> Unit, onBack: () -
         Header(title, onBack)
         when (kind) {
             "downloads" -> LazyColumn {
-                item { Text(t("AKTİF", "ACTIVE"), Modifier.padding(16.dp, 12.dp), color = Steam.btn, fontSize = 13.sp, letterSpacing = 1.sp) }
-                if (s.busy.isEmpty()) item { Text(t("Şu an indirme yok.", "No active downloads."), Modifier.padding(16.dp), color = Steam.dim) }
-                items(s.busy.entries.toList(), key = { it.key }) { e ->
-                    val a = s.resolve(e.key)
-                    Column(Modifier.fillMaxWidth().padding(12.dp, 4.dp).skinBg().padding(12.dp)) {
-                        Text(a?.name ?: e.key, fontWeight = FontWeight.Bold, color = Color.White)
-                        DlBar(if (e.value < 0) 1f else e.value, Modifier.padding(top = 6.dp))
-                        Text(if (e.value < 0) t("Kuruluyor…", "Installing…") else "%${(e.value * 100).toInt()}", fontSize = 12.sp, color = Steam.dim)
+                val tasks = s.dl.tasks.values.sortedWith(compareBy<DlTask>({ it.state.ordinal.let { o -> if (o == DlState.DOWNLOADING.ordinal) -1 else o } }, { it.created }))
+                item {
+                    Row(Modifier.padding(16.dp, 12.dp, 8.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(t("KUYRUK", "QUEUE") + if (tasks.isNotEmpty()) " (${tasks.size})" else "", Modifier.weight(1f), color = Steam.btn, fontSize = 13.sp, letterSpacing = 1.sp)
+                        if (tasks.any { it.state == DlState.DOWNLOADING || it.state == DlState.QUEUED }) TextButton({ s.dl.pauseAll() }) { Text(t("Tümünü duraklat", "Pause all")) }
+                        if (tasks.any { it.state == DlState.PAUSED || it.state == DlState.FAILED }) TextButton({ s.dl.resumeAll() }) { Text(t("Tümünü sürdür", "Resume all")) }
                     }
                 }
+                if (tasks.isEmpty()) item { Text(t("Şu an indirme yok. İndirmeler kaldığı yerden devam eder; ağ koparsa kendiliğinden yeniden dener.", "No downloads. Downloads resume where they left off and retry automatically."), Modifier.padding(16.dp), color = Steam.dim) }
+                items(tasks, key = { it.pkg }) { tk ->
+                    val a = s.anyPkg(tk.pkg)
+                    Row(Modifier.animateItem().fillMaxWidth().padding(12.dp, 4.dp).skinBg().clickable { onOpen(tk.pkg) }.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        if (a != null) AppIcon(a, 48, 8)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(tk.name, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                                Text(when (tk.source) { "PLAY" -> "Google Play"; "FDROID" -> "F-Droid"; else -> tk.source }, fontSize = 11.sp, color = Steam.dim)
+                            }
+                            DownloadLine(s, tk.pkg)
+                        }
+                    }
+                }
+                if (tasks.any { it.state == DlState.DONE || it.state == DlState.FAILED }) item { TextButton({ s.dl.clearFinished() }, Modifier.padding(horizontal = 8.dp)) { Text(t("Bitenleri / hatalıları temizle", "Clear finished / failed")) } }
                 item { Row(Modifier.padding(16.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) { Text(t("GEÇMİŞ", "HISTORY"), Modifier.weight(1f), color = Steam.btn, fontSize = 13.sp, letterSpacing = 1.sp); TextButton({ s.clearHistory() }) { Text(t("Temizle", "Clear")) } } }
                 items(s.history.toList()) { h ->
                     val p = h.split('~'); val pkg = p.getOrNull(0).orEmpty()

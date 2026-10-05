@@ -43,7 +43,7 @@ val ACHIEVEMENTS: List<Achv> = listOf(
     Achv("launch50", Icons.Filled.PlayArrow, "Kullanım", "Güç Kullanıcısı", "Power User", "Uygulamaları toplam 50 kez aç.", "Launch apps 50 times.", 50) { it.launches.values.sum() },
     Achv("launch250", Icons.Filled.PlayArrow, "Kullanım", "Bağımlı", "Addicted", "Uygulamaları toplam 250 kez aç.", "Launch apps 250 times.", 250) { it.launches.values.sum() },
     Achv("fresh", Icons.Filled.Update, "Güncellemeler", "Güncel Tut", "Stay Fresh", "3+ kurulu uygulaman var ve bekleyen güncelleme yok.", "3+ apps installed and no pending updates.", 1) { s -> if (s.libApps.count { s.isInstalled(it) } >= 3 && s.updateCount == 0) 1 else 0 },
-    Achv("check", Icons.Filled.Notifications, "Güncellemeler", "Nöbetçi", "Watchman", "Güncelleme denetimini en az bir kez çalıştır.", "Run an update check at least once.", 1) { if (it.lastCheck > 0) 1 else 0 },
+    Achv("check", Icons.Filled.SystemUpdateAlt, "Güncellemeler", "Nöbetçi", "Watchman", "Güncelleme denetimini en az bir kez çalıştır.", "Run an update check at least once.", 1) { if (it.lastCheck > 0) 1 else 0 },
     Achv("lv5", Icons.Filled.Star, "Seviye", "Seviye 5", "Level 5", "Seviye 5'e ulaş.", "Reach level 5.", 5) { it.level },
     Achv("lv10", Icons.Filled.Star, "Seviye", "Seviye 10", "Level 10", "Seviye 10'a ulaş.", "Reach level 10.", 10) { it.level },
     Achv("lv25", Icons.Filled.Star, "Seviye", "Seviye 25", "Level 25", "Seviye 25'e ulaş.", "Reach level 25.", 25) { it.level },

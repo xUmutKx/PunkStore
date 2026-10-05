@@ -25,10 +25,9 @@ import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.launch
 
-/** Steam hesabını bağla: kendi Web API anahtarın + SteamID64/özel URL; oyunlar ve oyun başarımları. */
+/** Steam hesabını bağla: profil ID/özel URL (anahtarsız); oyunlar ve oyun başarımları. */
 @Composable
 fun SteamAccountScreen(s: Store, onBack: () -> Unit) {
-    var key by remember { mutableStateOf(s.steamKey) }
     var who by remember { mutableStateOf(s.steamWho) }
     var profile by remember { mutableStateOf<SteamLink.Profile?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -41,11 +40,11 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit) {
     val lang = if (I18n.isTr) "turkish" else "english"
 
     fun connect() { loading = true; err = null; scope.launch2 {
-        runCatching { SteamLink.load(key.trim(), who.trim(), lang) }.onSuccess { profile = it; s.saveSteam(key.trim(), who.trim(), it.id) }.onFailure { err = it.message }
+        runCatching { SteamLink.load(who.trim(), lang) }.onSuccess { profile = it; s.saveSteam("", who.trim(), it.id) }.onFailure { err = it.message }
         loading = false } }
-    LaunchedEffect(Unit) { if (s.steamKey.isNotBlank() && s.steamWho.isNotBlank() && profile == null) connect() }
+    LaunchedEffect(Unit) { if (s.steamWho.isNotBlank() && profile == null) connect() }
     LaunchedEffect(game) { achs = null; val g = game ?: return@LaunchedEffect; err = null
-        runCatching { SteamLink.achievements(s.steamKey, profile!!.id, g.appId, lang) }.onSuccess { achs = it }.onFailure { err = it.message; achs = emptyList() } }
+        runCatching { SteamLink.achievements(profile!!.id, g.appId, lang) }.onSuccess { achs = it }.onFailure { err = it.message; achs = emptyList() } }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -56,10 +55,9 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit) {
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         val p = profile
         if (p == null) Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(t("Steam'deki oyunlarını ve oyun başarımlarını görmek için ücretsiz bir Web API anahtarı gerekir (steamcommunity.com/dev/apikey). Profilindeki 'Oyun ayrıntıları' herkese açık olmalı.", "To see your Steam games and achievements you need a free Web API key (steamcommunity.com/dev/apikey). Your profile's 'Game details' must be public."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedTextField(who, { who = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("SteamID64 / " + t("özel URL adı", "vanity name")) })
-            OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(t("Web API anahtarı", "Web API key")) }, visualTransformation = PasswordVisualTransformation())
-            Button({ connect() }, enabled = !loading && key.isNotBlank() && who.isNotBlank()) { Text(t("Bağlan", "Connect")) }
+            Text(t("Steam profil ID'ni ya da özel URL adını gir (API anahtarı gerekmez). Profilin ve 'Oyun ayrıntıları' herkese açık olmalı.", "Enter your Steam profile ID or vanity URL name (no API key needed). Your profile and 'Game details' must be public."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(who, { who = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(t("Profil ID / özel URL adı", "Profile ID / vanity name")) })
+            Button({ connect() }, enabled = !loading && who.isNotBlank()) { Text(t("Bağlan", "Connect")) }
         } else if (game == null) LazyColumn {
             item {
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -69,7 +67,7 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit) {
                         Text(p.name, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         Text(t("Seviye ${p.level} · ${p.games.size} oyun · ${p.games.sumOf { it.minutes } / 60} saat", "Level ${p.level} · ${p.games.size} games · ${p.games.sumOf { it.minutes } / 60} h"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton({ profile = null; s.saveSteam("", "", "") ; key = ""; who = "" }) { Text(t("Çıkış", "Unlink")) }
+                    TextButton({ profile = null; s.saveSteam("", "", ""); who = "" }) { Text(t("Çıkış", "Unlink")) }
                 }
                 OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, placeholder = { Text(t("Oyunlarda ara", "Search games")) })
             }

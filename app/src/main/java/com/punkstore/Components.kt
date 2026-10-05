@@ -1,4 +1,9 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.punkstore
+
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -15,6 +20,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.composed
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -28,13 +38,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
+/** Kalan süre: "45 sn" / "3 dk 10 sn" / "1 sa 5 dk" */
+fun etaText(sec: Long): String = when { sec < 60 -> t("$sec sn kaldı", "${sec}s left"); sec < 3600 -> t("${sec / 60} dk ${sec % 60} sn kaldı", "${sec / 60}m ${sec % 60}s left"); else -> t("${sec / 3600} sa ${sec % 3600 / 60} dk kaldı", "${sec / 3600}h ${sec % 3600 / 60}m left") }
 fun sizeText(b: Long) = if (b <= 0) "" else if (b > 1_000_000) "%.1f MB".format(b / 1e6) else "%d KB".format(b / 1000)
+
+/** Cihazda kurulu uygulamanın kendi ikonu (katalogda görseli olmayanlar için). */
+@Composable
+fun rememberLocalIcon(pkg: String): androidx.compose.ui.graphics.ImageBitmap? {
+    val ctx = LocalContext.current
+    val st = androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(LocalIcons.map[pkg], pkg) {
+        if (value == null) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { ctx.packageManager.getApplicationIcon(pkg).toBitmap(128, 128).asImageBitmap() }.getOrNull()
+        }?.also { LocalIcons.map[pkg] = it }
+    }
+    return st.value
+}
+object LocalIcons { val map = java.util.concurrent.ConcurrentHashMap<String, androidx.compose.ui.graphics.ImageBitmap>() }
 
 @Composable
 fun AppIcon(a: AppItem, size: Int, radius: Int = 12) {
     val shape = RoundedCornerShape(radius.dp)
     Box(Modifier.size(size.dp).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+        val local = if (a.icon == null) rememberLocalIcon(a.pkg) else null
         if (a.icon != null) AsyncImage(a.icon, a.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else if (local != null) androidx.compose.foundation.Image(local, a.name, Modifier.fillMaxSize())
         else Text(a.name.take(1).uppercase(), fontSize = (size / 2).sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     }
 }
@@ -50,38 +77,124 @@ fun Capsule(a: AppItem, modifier: Modifier = Modifier, iconSize: Int = 40, radiu
     }
 }
 
-/** Steam'in yeşil "Yükle" düğmesi / Material'de dolu düğme. */
+/** Basınca hafifçe küçülüp yaylanarak geri gelen dokunma efekti. */
+fun Modifier.pressScale(onClick: () -> Unit, enabled: Boolean = true, onLongClick: (() -> Unit)? = null): Modifier = composed {
+    val src = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
+    val sc by androidx.compose.animation.core.animateFloatAsState(if (pressed) .94f else 1f, androidx.compose.animation.core.spring(dampingRatio = .45f, stiffness = 600f), label = "press")
+    this.graphicsLayer { scaleX = sc; scaleY = sc }
+        .combinedClickable(interactionSource = src, indication = androidx.compose.foundation.LocalIndication.current, enabled = enabled, onLongClick = onLongClick, onClick = onClick)
+}
+
+/** Steam'in yeşil "Yükle" düğmesi / Material'de dolu düğme. İndirme sürerken düğmenin içi soldan sağa dolar; dokununca duraklat / devam / tekrar dene. */
 @Composable
 fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: Boolean = false) {
     val ctx = LocalContext.current
-    val p = s.busy[a.pkg]
+    val task = s.dl[a.pkg]
     val inst = s.isInstalled(a)
     val upd = s.hasUpdate(a)
+    val isSteam = a.source == "STEAM"
+    val st = task?.state
     val label = when {
-        a.source == "STEAM" -> t("Steam'de aç", "View on Steam")
-        p != null && p >= 0 -> "%${(p * 100).toInt()}"
-        p != null -> t("Kuruluyor…", "Installing…")
+        isSteam -> t("Steam'de aç", "View on Steam")
+        st == DlState.QUEUED -> t("Sırada…", "Queued…")
+        st == DlState.DOWNLOADING -> "%${(task.progress * 100).toInt()}"
+        st == DlState.VERIFYING -> t("Doğrulanıyor…", "Verifying…")
+        st == DlState.INSTALLING -> t("Kuruluyor…", "Installing…")
+        st == DlState.PAUSED -> t("Devam  ", "Resume  ") + "%${(task.progress * 100).toInt()}"
+        st == DlState.FAILED -> t("Tekrar dene", "Retry")
+        st == DlState.DONE -> "✓ " + t("Kuruldu", "Installed")
         upd -> t("Güncelle", "Update")
-        inst -> t("Aç", "Open")
+        inst -> if (a.categories.any { it.contains("Game", true) }) t("Oyna", "Play") else t("Aç", "Open")
         else -> if (compact) t("Yükle", "Get") else t("Yükle", "Get") + "  ${sizeText(a.apkSize)}"
     }
-    val isSteam = a.source == "STEAM"
-    val onClick = { if (isSteam) ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(a.web)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) else if (inst && !upd) s.open(ctx, a.pkg) else s.getOrUpdate(a, ctx) }
+    val onClick = {
+        when {
+            isSteam -> { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(a.web)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }; Unit }
+            st == DlState.DOWNLOADING || st == DlState.QUEUED -> s.dl.pause(a.pkg)
+            st == DlState.PAUSED || st == DlState.FAILED -> s.dl.resume(a.pkg)
+            st == DlState.VERIFYING || st == DlState.INSTALLING -> Unit
+            inst && !upd -> s.open(ctx, a.pkg)
+            else -> s.getOrUpdate(a, ctx)
+        }
+    }
+    val prog by androidx.compose.animation.core.animateFloatAsState(when (st) { null, DlState.DONE -> 0f; DlState.VERIFYING, DlState.INSTALLING -> 1f; else -> task.progress }, androidx.compose.animation.core.tween(250), label = "fill")
+    val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "p").animateFloat(.55f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse), label = "pa")
+    val failed = st == DlState.FAILED
     if (s.design.steam) {
         val shape = RoundedCornerShape(Steam.corner.dp)
-        val brush = if (inst && !upd) Brush.horizontalGradient(listOf(Steam.panel2, Color(0xFF3D6E8E)))
-                    else Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB))
+        val brush = when {
+            failed -> Brush.verticalGradient(listOf(Color(0xFFA34C25), Color(0xFF7A3418)))
+            task != null && st != DlState.DONE -> Brush.verticalGradient(listOf(Color(0xFF2F3B46), Color(0xFF26313B)))
+            inst && !upd -> Brush.horizontalGradient(listOf(Steam.panel2, Color(0xFF3D6E8E)))
+            else -> Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB))
+        }
         Box(
-            modifier.clip(shape).background(brush).gloss().border(1.dp, Color(0x66000000), shape).steamBevel().clickable(enabled = p == null, onClick = onClick)
+            modifier.clip(shape).background(brush).drawBehind {
+                if (prog > 0f) {
+                    val w = size.width * prog
+                    drawRect(Brush.verticalGradient(listOf(Steam.greenA, Steam.greenB)), size = androidx.compose.ui.geometry.Size(w, size.height),
+                        alpha = if (st == DlState.VERIFYING || st == DlState.INSTALLING) pulse.value else 1f)
+                }
+            }.gloss().border(1.dp, Color(0x66000000), shape).steamBevel().pressScale(onClick)
                 .padding(horizontal = if (compact) 14.dp else 22.dp, vertical = if (compact) 8.dp else 12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (compact) 13.sp else 15.sp, maxLines = 1, softWrap = false)
-            if (p != null) DlBar(if (p < 0) 1f else p, Modifier.align(Alignment.BottomStart), Color.White, Color(0x44FFFFFF))
+            androidx.compose.animation.AnimatedContent(label, transitionSpec = {
+                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160)) + androidx.compose.animation.slideInVertically { it / 2 }) togetherWith
+                    (androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.slideOutVertically { -it / 2 })
+            }, contentKey = { it.firstOrNull()?.let { c -> if (c == '%') "%" else it } ?: it }, label = "lbl") { l ->
+                Text(l, color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (compact) 13.sp else 15.sp, maxLines = 1, softWrap = false)
+            }
         }
     } else {
-        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) { Button(onClick, enabled = p == null) { Text(label, maxLines = 1, softWrap = false) }; if (p != null) WavyProgress(if (p < 0) 1f else p, Modifier.padding(top = 4.dp)) }
+        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            Button(onClick, colors = if (failed) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()) {
+                androidx.compose.animation.AnimatedContent(label, contentKey = { it.firstOrNull()?.let { c -> if (c == '%') "%" else it } ?: it }, label = "lbl") { l -> Text(l, maxLines = 1, softWrap = false) }
+            }
+            androidx.compose.animation.AnimatedVisibility(task != null && st != DlState.DONE) { WavyProgress(prog, Modifier.padding(top = 4.dp)) }
+        }
     }
+}
+
+/** İndirme ayrıntı satırı: çubuk + "12,3 / 45,6 MB · 2,1 MB/s · 15 sn kaldı" + duraklat/devam/iptal. */
+@Composable
+fun DownloadLine(s: Store, pkg: String, modifier: Modifier = Modifier) {
+    val task = s.dl[pkg]
+    androidx.compose.animation.AnimatedVisibility(task != null, modifier, enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()) {
+        val tk = task ?: return@AnimatedVisibility
+        val prog by androidx.compose.animation.core.animateFloatAsState(if (tk.state == DlState.DONE || tk.state == DlState.INSTALLING || tk.state == DlState.VERIFYING) 1f else tk.progress, androidx.compose.animation.core.tween(250), label = "dlp")
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            DlBar(prog, color = if (tk.state == DlState.FAILED) Color(0xFFA34C25) else if (tk.state == DlState.PAUSED) Steam.dim else Steam.btn)
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(dlStatus(tk), Modifier.weight(1f), color = if (tk.state == DlState.FAILED) Color(0xFFE07B53) else Steam.dim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                when (tk.state) {
+                    DlState.DOWNLOADING, DlState.QUEUED -> SmallIconBtn(Icons.Filled.Pause, t("Duraklat", "Pause")) { s.dl.pause(pkg) }
+                    DlState.PAUSED, DlState.FAILED -> SmallIconBtn(if (tk.state == DlState.FAILED) Icons.Filled.Refresh else Icons.Filled.PlayArrow, t("Devam", "Resume")) { s.dl.resume(pkg) }
+                    else -> {}
+                }
+                if (tk.state != DlState.INSTALLING && tk.state != DlState.DONE && tk.state != DlState.VERIFYING) SmallIconBtn(Icons.Filled.Close, t("İptal", "Cancel")) { s.dl.cancel(pkg) }
+            }
+        }
+    }
+}
+
+@Composable
+fun SmallIconBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) =
+    Icon(icon, desc, tint = Color.White, modifier = Modifier.padding(start = 6.dp).size(30.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Color(0x33FFFFFF)).pressScale(onClick).padding(5.dp))
+
+fun dlStatus(tk: DlTask): String = when (tk.state) {
+    DlState.QUEUED -> t("Sırada bekliyor", "Waiting in queue")
+    DlState.DOWNLOADING -> buildString {
+        append(sizeText(tk.bytes).ifBlank { "0 KB" }); if (tk.total > 0) append(" / ${sizeText(tk.total)}")
+        if (tk.speed > 0) append("  ·  ${sizeText(tk.speed)}/s"); if (tk.eta >= 0) append("  ·  ${etaText(tk.eta)}")
+        if (tk.attempt > 0) append("  ·  " + t("yeniden deneniyor (${tk.attempt}/4)", "retrying (${tk.attempt}/4)"))
+    }
+    DlState.PAUSED -> t("Duraklatıldı", "Paused") + "  ·  ${sizeText(tk.bytes).ifBlank { "0 KB" }}" + (if (tk.total > 0) " / ${sizeText(tk.total)}" else "")
+    DlState.VERIFYING -> t("SHA-256 doğrulanıyor…", "Verifying SHA-256…")
+    DlState.INSTALLING -> t("Kuruluyor…", "Installing…")
+    DlState.DONE -> "✓ " + t("Kuruldu", "Installed")
+    DlState.FAILED -> tk.error ?: t("Hata", "Error")
 }
 
 @Composable
@@ -129,7 +242,7 @@ fun SectionTitle(text: String, s: Store, modifier: Modifier = Modifier) {
 @Composable
 fun BottomBar(design: Design, tab: Tab, updates: Int, onTab: (Tab) -> Unit) {
     val icons = mapOf(Tab.DISCOVER to (Icons.Filled.Explore to Icons.Outlined.Explore), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search), Tab.STORE to (Icons.Filled.Storefront to Icons.Outlined.Storefront), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search),
-        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.Notifications to Icons.Outlined.Notifications), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person))
+        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.SystemUpdateAlt to Icons.Outlined.SystemUpdateAlt), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person))
     if (design.steam) {
         Row(Modifier.fillMaxWidth().background(Steam.topBrush).navigationBarsPadding().height(58.dp)) {
             Tab.values().filter { it.bottom }.forEach { t ->

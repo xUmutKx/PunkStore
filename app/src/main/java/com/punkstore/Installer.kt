@@ -29,56 +29,7 @@ object Cfg {
 }
 
 object Installer {
-    /** APK'yı indirir (ilerleme 0..1), sha256 doğrular, dosyayı döndürür. */
-    suspend fun download(c: Context, app: AppItem, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
-        val dir = File(c.cacheDir, "apk").apply { mkdirs() }
-        val f = File(dir, "${app.pkg}-${app.versionCode}.apk")
-        val md = MessageDigest.getInstance("SHA-256")
-        http.newCall(Request.Builder().url(app.apkUrl).build()).execute().use { r ->
-            check(r.isSuccessful) { t("İndirilemedi: ${r.code}", "Download failed: ${r.code}") }
-            val body = r.body!!
-            val total = (if (body.contentLength() > 0) body.contentLength() else app.apkSize).coerceAtLeast(1)
-            var read = 0L
-            f.outputStream().use { o ->
-                body.byteStream().use { i ->
-                    val buf = ByteArray(64 * 1024)
-                    while (true) {
-                        val n = i.read(buf); if (n < 0) break
-                        o.write(buf, 0, n); md.update(buf, 0, n); read += n
-                        onProgress((read.toFloat() / total).coerceAtMost(1f))
-                    }
-                }
-            }
-        }
-        if (app.apkSha256.isNotBlank()) {
-            val got = md.digest().joinToString("") { "%02x".format(it) }
-            if (!got.equals(app.apkSha256, true)) { f.delete(); error(t("Doğrulama başarısız (sha256 uyuşmuyor)", "Verification failed (sha256 mismatch)")) }
-        }
-        f
-    }
-
-    /** Google Play dosyalarını (base + split) indirir; toplam ilerleme 0..1. */
-    suspend fun downloadPlay(c: Context, pkg: String, files: List<com.aurora.gplayapi.data.models.PlayFile>, onProgress: (Float) -> Unit): List<File> = withContext(Dispatchers.IO) {
-        val dir = File(c.cacheDir, "apk/$pkg").apply { deleteRecursively(); mkdirs() }
-        val abis = android.os.Build.SUPPORTED_ABIS.map { it.replace('-', '_') }
-        val abiRe = Regex("(?<![a-z0-9])(arm64_v8a|armeabi_v7a|x86_64|x86)(?![a-z0-9])", RegexOption.IGNORE_CASE)
-        val apks = files.filter { it.type == com.aurora.gplayapi.data.models.PlayFile.Type.BASE || it.type == com.aurora.gplayapi.data.models.PlayFile.Type.SPLIT }
-            .filter { f -> val m = abiRe.find(f.name)?.value?.lowercase(); m == null || m in abis }
-        check(apks.isNotEmpty()) { t("İndirilebilir dosya yok (ücretli ya da bölgeye kapalı olabilir)", "Nothing to download (may be paid or region-locked)") }
-        val total = apks.sumOf { it.size }.coerceAtLeast(1)
-        var done = 0L
-        apks.mapIndexed { i, pf ->
-            val f = File(dir, "${i}-${pf.name.ifBlank { "split.apk" }}".replace('/', '_'))
-            http.newCall(Request.Builder().url(pf.url).build()).execute().use { r ->
-                check(r.isSuccessful) { t("İndirilemedi: ${r.code}", "Download failed: ${r.code}") }
-                f.outputStream().use { o -> r.body!!.byteStream().use { inp ->
-                    val buf = ByteArray(64 * 1024)
-                    while (true) { val n = inp.read(buf); if (n < 0) break; o.write(buf, 0, n); done += n; onProgress((done.toFloat() / total).coerceAtMost(1f)) }
-                } }
-            }
-            f
-        }
-    }
+    // İndirme: Downloads.kt (DownloadQueue — kuyruk, devam ettirme, doğrulama)
 
     fun canInstall(c: Context) = c.packageManager.canRequestPackageInstalls()
 
@@ -89,7 +40,7 @@ object Installer {
     fun install(c: Context, apk: File) = installMany(c, listOf(apk))
 
     /** Kurulum yöntemi: SESSION (PackageInstaller), NATIVE (sistem kurucusu), ROOT (su + pm). */
-    fun installMany(c: Context, apks: List<File>) {
+    fun installMany(c: Context, apks: List<File>, pkg: String? = null) {
         when (Cfg.method(c)) {
             InstallMethod.ROOT -> installRoot(c, apks)
             InstallMethod.NATIVE -> {
@@ -103,12 +54,12 @@ object Installer {
                 val id = pi.createSession(PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL))
                 pi.openSession(id).use { s ->
                     apks.forEachIndexed { n, apk -> apk.inputStream().use { i -> s.openWrite("$n.apk", 0, apk.length()).use { o -> i.copyTo(o); s.fsync(o) } } }
-                    val pend = PendingIntent.getBroadcast(c, id, Intent(c, InstallReceiver::class.java), PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                    val pend = PendingIntent.getBroadcast(c, id, Intent(c, InstallReceiver::class.java).putExtra("pkg", pkg), PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                     s.commit(pend.intentSender)
                 }
             }
         }
-        if (Cfg.deleteApk(c)) apks.forEach { it.delete() }
+        // APK'lar indirme kuyruğu tarafından kurulum BAŞARILI olunca silinir (iptal/hata durumunda yeniden indirmeden tekrar denenebilsin)
     }
 
     // ---- ROOT ----
@@ -146,8 +97,17 @@ object Installer {
 class InstallReceiver : BroadcastReceiver() {
     @Suppress("DEPRECATION")
     override fun onReceive(c: Context, i: Intent) {
-        if (i.getIntExtra(PackageInstaller.EXTRA_STATUS, -1) == PackageInstaller.STATUS_PENDING_USER_ACTION) {
-            i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)?.let { c.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        val pkg = i.getStringExtra("pkg") ?: i.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME)
+        when (val st = i.getIntExtra(PackageInstaller.EXTRA_STATUS, -1)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)?.let { c.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            PackageInstaller.STATUS_SUCCESS -> pkg?.let { InstallBus.result(it, true, null) }
+            else -> pkg?.let { InstallBus.result(it, false, when (st) {
+                PackageInstaller.STATUS_FAILURE_ABORTED -> t("Kurulum iptal edildi", "Install cancelled")
+                PackageInstaller.STATUS_FAILURE_STORAGE -> t("Yetersiz depolama", "Not enough storage")
+                PackageInstaller.STATUS_FAILURE_CONFLICT -> t("Kurulu sürümle imza çakışması (önce kaldırın)", "Signature conflict with installed version (uninstall first)")
+                PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> t("Cihazla uyumsuz", "Incompatible with this device")
+                else -> i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: t("Kurulum başarısız", "Install failed")
+            }) }
         }
     }
 }

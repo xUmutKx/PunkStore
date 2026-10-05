@@ -12,7 +12,7 @@ import com.aurora.gplayapi.helpers.TopChartsHelper
 import com.aurora.gplayapi.helpers.contracts.TopChartsContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
@@ -123,9 +123,30 @@ object PlayRepo {
         AppDetailsHelper(au).using(client).getAppByPackageName(pkgs).filter { it.packageName.isNotBlank() }.map(::toItem)
     }
 
-    suspend fun reviews(c: Context, pkg: String): List<UserReview> = withAuth(c) { au ->
-        com.aurora.gplayapi.helpers.ReviewsHelper(au).using(client).getReviews(pkg, com.aurora.gplayapi.data.models.Review.Filter.ALL, com.aurora.gplayapi.helpers.ReviewsHelper.DEFAULT_SIZE).reviewList
-            .map { UserReview(it.userName, it.comment.ifBlank { it.title }, null, it.rating, 0, 0, it.timeStamp * 1000) }.filter { it.text.isNotBlank() }
+    /** Yorumlar: önce Play web (batchexecute, oturum gerektirmez), olmazsa gplayapi. */
+    suspend fun reviews(c: Context, pkg: String): List<UserReview> {
+        val web = runCatching { webReviews(pkg) }.getOrDefault(emptyList())
+        if (web.isNotEmpty()) return web
+        return withAuth(c) { au ->
+            com.aurora.gplayapi.helpers.ReviewsHelper(au).using(client).getReviews(pkg, com.aurora.gplayapi.data.models.Review.Filter.ALL, com.aurora.gplayapi.helpers.ReviewsHelper.DEFAULT_SIZE).reviewList
+                .map { UserReview(it.userName, it.comment.ifBlank { it.title }, null, it.rating, 0, 0, it.timeStamp * 1000) }.filter { it.text.isNotBlank() }
+        }
+    }
+
+    private suspend fun webReviews(pkg: String): List<UserReview> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val lang = if (I18n.isTr) "tr" else "en"
+        val freq = "[[[\"UsvDTd\",\"[null,null,[2,1,[40,null,null],null,[]],[\\\"$pkg\\\",7]]\",null,\"generic\"]]]"
+        val req = okhttp3.Request.Builder().url("https://play.google.com/_/PlayStoreUi/data/batchexecute?rpcids=UsvDTd&source-path=%2Fstore%2Fapps%2Fdetails&hl=$lang&gl=US&rt=c")
+            .post(okhttp3.FormBody.Builder().add("f.req", freq).build()).build()
+        val body = http.newCall(req).execute().use { check(it.isSuccessful) { "Play: ${it.code}" }; it.body!!.string() }
+        val line = body.lineSequence().first { it.startsWith("[[") }
+        val inner = json.parseToJsonElement(line).jsonArray[0].jsonArray[2].jsonPrimitive.content
+        json.parseToJsonElement(inner).jsonArray[0].jsonArray.mapNotNull { e ->
+            runCatching {
+                val r = e.jsonArray
+                UserReview(r[1].jsonArray[0].jsonPrimitive.content, r[4].jsonPrimitive.content, null, r[2].jsonPrimitive.int, r[6].jsonPrimitive.intOrNull ?: 0, 0, r[5].jsonArray[0].jsonPrimitive.long * 1000)
+            }.getOrNull()
+        }.filter { it.text.isNotBlank() }
     }
 
     suspend fun detail(c: Context, pkg: String): AppItem? = details(c, listOf(pkg)).firstOrNull()

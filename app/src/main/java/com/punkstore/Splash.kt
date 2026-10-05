@@ -33,7 +33,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SplashOverlay(s: Store, onDone: () -> Unit) {
     val ctx = LocalContext.current
-    val covers = remember(s.apps.size) { s.apps.mapNotNull { it.cover ?: it.icon }.shuffled().take(30) + s.steamMap.values.mapNotNull { it.banner.ifBlank { null } }.shuffled().take(10) }
+    // yalnızca önceden indirilmiş (önbellekteki) görseller; ilk açılışta boş, sonraki açılışlarda tam dolu
+    val covers = remember { s.splashUrls.shuffled().take(45) }
     val drift by rememberInfiniteTransition(label = "d").animateFloat(0f, 1f, infiniteRepeatable(tween(2500, easing = LinearEasing)), label = "dr")
     val logo = remember { Animatable(0f) }
     val boom = remember { Animatable(0f) }
