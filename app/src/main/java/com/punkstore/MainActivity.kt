@@ -75,7 +75,7 @@ fun Root(s: Store) {
             "refresh" -> { s.refresh(); s.checkUpdates(true); s.loadSteamStore() }
             "daily" -> s.apps.filter { it.cover != null }.let { l -> if (l.isNotEmpty()) openPkg = l[((System.currentTimeMillis() / 86400000L) % l.size).toInt()].pkg }
             "random" -> s.apps.filter { it.cover != null }.let { l -> if (l.isNotEmpty()) openPkg = l.random().pkg }
-            else -> overlay = "f:$k"
+            else -> if (k.startsWith("app:")) openPkg = k.removePrefix("app:") else overlay = "f:$k"
         }
     }
     LaunchedEffect(openPkg) { openPkg?.let { s.noteView(it) } }

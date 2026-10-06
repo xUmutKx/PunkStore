@@ -276,6 +276,21 @@ class Store(app: Application) : AndroidViewModel(app) {
     var steamErr by mutableStateOf<String?>(null); private set
     fun loadSteamStore() { if (!showSteam) return; viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamListsRaw = m; saveExtra(); steamErr = null }.onFailure { steamErr = it.message } } }
     suspend fun searchSteamStore(q: String): List<AppItem> = if (!showSteam) emptyList() else runCatching { SteamStoreApi.search(q).onEach { steamMap.putIfAbsent(it.pkg, it) }.also { saveExtra() } }.getOrDefault(emptyList())
+    /** Names for games that came without one (private profile, stripped list): filled from Steam's store API. */
+    val steamNames = mutableStateMapOf<Long, String>()
+    fun ensureSteamName(id: Long) {
+        if (id in steamNames) return
+        steamNames[id] = ""
+        viewModelScope.launch { runCatching { SteamStoreApi.name(id) }.getOrNull()?.takeIf { it.isNotBlank() }?.let { steamNames[id] = it } }
+    }
+    /** Our own game page for a Steam app: starts from what the list knows, enrichSteam() adds the store data. Returns the page's key. */
+    fun steamPkg(appId: Long, name: String, header: String, price: String = "", minutes: Int = 0): String {
+        val pkg = "steam:$appId"
+        if (steamMap[pkg] == null) steamMap[pkg] = AppItem(pkg, name.takeIf { it.isNotBlank() && it != "?" } ?: steamNames[appId]?.takeIf { it.isNotBlank() } ?: "App $appId", source = "STEAM", banner = header,
+            icon = "https://cdn.cloudflare.steamstatic.com/steam/apps/$appId/capsule_231x87.jpg", web = "https://store.steampowered.com/app/$appId/",
+            categories = listOf("Game"), price = price, extra = mapOf("minutes" to "$minutes", "header" to header))
+        return pkg
+    }
     val reviews = mutableStateMapOf<String, List<UserReview>>()
     fun loadReviews(a: AppItem, force: Boolean = false) { if ((a.pkg in reviews && !force) || a.source == "FDROID") return; reviewErr.remove(a.pkg); reviews.remove(a.pkg); viewModelScope.launch { runCatching { if (a.source == "STEAM") SteamStoreApi.reviews(a) else PlayRepo.reviews(getApplication(), a.pkg) }.onSuccess { reviews[a.pkg] = it }.onFailure { reviewErr[a.pkg] = it.message ?: it.javaClass.simpleName; reviews[a.pkg] = emptyList() } } }
     fun enrichSteam(a: AppItem) { if (a.review.isNotBlank() || a.description.isNotBlank()) return; viewModelScope.launch { runCatching { SteamStoreApi.details(a) }.onSuccess { d ->

@@ -11,6 +11,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -79,9 +80,9 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit, onNav: (String) -> Unit = {
                                 (p.note ?: s.steamAccErr)?.let { Text(it, Modifier.padding(top = 12.dp), color = Color(0xFFE0B25A), fontSize = 13.sp) }
                             }
                         }
-                        item { SteamDbCard(s) }
+                        item { SteamDbCard(s) { onNav("app:$it") } }
                         item { SteamGamesHeader(p) }
-                        items(p.games, key = { it.appId }) { g -> SteamGameRow(g, Modifier.animateItem()) { game = g } }
+                        items(p.games, key = { it.appId }) { g -> SteamGameRow(s, g, Modifier.animateItem(), { onNav("app:" + s.steamPkg(g.appId, g.name, g.header, "", g.minutes)) }) { game = g } }
                         item {
                             SteamSection(t("Hesap", "Account"))
                             SteamRow(t("Hesabı değiştir", "Change Account"), s.steamWho.ifBlank { p.id }, onClick = { s.steamLogout() })
@@ -136,7 +137,7 @@ private fun SteamDbVerify(s: Store, onClose: () -> Unit) {
 
 /** SteamDB account summary + most played games (default source; switch it off in Settings). */
 @Composable
-fun SteamDbCard(s: Store) {
+fun SteamDbCard(s: Store, onOpen: ((String) -> Unit)? = null) {
     var verify by remember { mutableStateOf(false) }
     if (verify) SteamDbVerify(s) { verify = false }
     // SteamDB asked for a human check in the background read: show the check page right away
@@ -163,10 +164,13 @@ fun SteamDbCard(s: Store) {
             if (d.xp.isNotBlank()) Text("XP  ${d.xp}", Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 20.dp, vertical = 8.dp), color = Steam.dim, fontSize = 13.sp)
             d.games.forEach { g ->
                 Row(Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 12.dp, vertical = 3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF16202D))
-                    .pressScale({ Browser.open("https://steamdb.info/app/${g.appId}/") }), verticalAlignment = Alignment.CenterVertically) {
+                    .pressScale({
+                        if (onOpen == null) Browser.open("https://steamdb.info/app/${g.appId}/")
+                        else onOpen(s.steamPkg(g.appId, g.name, g.header, g.price, (g.hours * 60).toInt()))
+                    }), verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(g.header, null, Modifier.width(112.dp).height(52.dp).background(Color(0xFF0E141B)), contentScale = ContentScale.Crop)
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                        Text(g.name, color = Steam.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(gameName(s, g.appId, g.name), color = Steam.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(listOfNotNull(g.hours.takeIf { it > 0 }?.let { "%.1f h".format(it) }, g.price.ifBlank { null }, g.pct.ifBlank { null }).joinToString("  ·  "), color = Steam.dim, fontSize = 12.sp)
                     }
                 }
@@ -185,15 +189,23 @@ private fun SteamGamesHeader(p: SteamLink.Profile) {
 
 /** Steam arama sonucu satırı gibi: başlık görseli + ad + oynama süresi */
 @Composable
-private fun SteamGameRow(g: SteamLink.Game, modifier: Modifier, onClick: () -> Unit) {
+private fun SteamGameRow(s: Store, g: SteamLink.Game, modifier: Modifier, onClick: () -> Unit, onAchievements: () -> Unit) {
     Row(modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF16202D)).pressScale(onClick), verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(g.header, null, Modifier.width(140.dp).height(66.dp).background(Color(0xFF0E141B)), contentScale = ContentScale.Crop)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(g.name, color = Steam.text, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(gameName(s, g.appId, g.name), color = Steam.text, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(if (g.minutes > 0) hours(g.minutes) + t(" oynandı", " played") else t("Hiç oynanmadı", "Never played"), color = Steam.dim, fontSize = 13.sp)
         }
-        Icon(Icons.Filled.EmojiEvents, t("Başarımlar", "Achievements"), tint = Steam.dim, modifier = Modifier.padding(end = 12.dp).size(22.dp))
+        Icon(Icons.Filled.EmojiEvents, t("Başarımlar", "Achievements"), tint = Steam.dim, modifier = Modifier.padding(end = 4.dp).size(40.dp).clip(RoundedCornerShape(20.dp)).clickable(onClick = onAchievements).padding(9.dp))
     }
+}
+
+/** The game's name; when the list came without one, it is looked up on Steam (and shown as soon as it arrives). */
+@Composable
+private fun gameName(s: Store, id: Long, name: String): String {
+    val missing = name.isBlank() || name == "?"
+    LaunchedEffect(id, missing) { if (missing) s.ensureSteamName(id) }
+    return if (missing) s.steamNames[id]?.takeIf { it.isNotBlank() } ?: "App $id" else name
 }
 
 /** Bağlı değilken: Steam ile giriş (önerilen) ya da profil adı/ID */

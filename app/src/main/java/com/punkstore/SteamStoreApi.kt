@@ -53,6 +53,11 @@ object SteamStoreApi {
         }
     }
 
+    /** Just the game's name (for lists that only know the app id). */
+    suspend fun name(id: Long): String? = withContext(Dispatchers.IO) {
+        get("https://store.steampowered.com/api/appdetails?appids=$id&filters=basic&l=english")["$id"]?.jsonObject?.get("data")?.jsonObject?.get("name")?.jsonPrimitive?.content
+    }
+
     /** Açıklama, geliştirici, türler, ekran görüntüleri ve gerçek kullanıcı değerlendirme özeti. */
     suspend fun details(a: AppItem): AppItem = withContext(Dispatchers.IO) {
         val id = a.pkg.removePrefix("steam:")
