@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -84,16 +85,118 @@ object GitHubRepo {
     }
 }
 
+const val UMUTK_CAT = "by UmutK"
+
+/** My own apps, described from their READMEs; screenshots ship in assets/umutk. */
+class MyApp(val name: String, val tagline: String, val readme: String, val shots: List<String>, val repo: String, val color: Long)
+
+val myApps: List<MyApp> get() = listOf(
+    MyApp("Punk Store", t("F-Droid, Google Play ve Steam tek mağazada", "F-Droid, Google Play and Steam in one store"),
+        t("Telefonum için bir şey ararken F-Droid, Play Store ve Steam arasında gidip gelmekten bıktım, üçünü tek mağazada topladım. Görünümü Steam mobil uygulaması gibi.\n\n" +
+            "• Üç kaynak, tek arama: F-Droid, Google Play ve Steam; yazdıkça arar, en iyi eşleşme üstte.\n" +
+            "• Steam gibi çalışan kütüphane: son kullandığın büyük kartta, filtreler, koleksiyonlar, uzun basınca menü.\n" +
+            "• Steam hesabın: oyunların, oynama süren ve başarımların gelir; şifren uygulamaya hiç uğramaz.\n" +
+            "• İndirmeler: aynı anda iki indirme, duraklat/devam, SHA-256 doğrulama, root ile sessiz kurulum.\n" +
+            "• Uygulama sayfalarında ekran görüntüleri, yorumlar ve gizlilik raporu.\n\nHobi projesi; Valve ile ilgisi yok. GPL-3.0.",
+            "I got tired of jumping between F-Droid, the Play Store and Steam every time I wanted to find something for my phone, so I made one store that has all three. It looks like the Steam mobile app.\n\n" +
+            "• Three sources, one search: F-Droid, Google Play and Steam; it searches as you type, best match first.\n" +
+            "• A library that works like Steam's: last used app on a big card, filters, collections, long-press menu.\n" +
+            "• Your Steam account: games, playtime and achievements come over; your password never touches the app.\n" +
+            "• Downloads: two at once, pause/resume, SHA-256 checks, silent installs with root.\n" +
+            "• App pages with screenshots, reviews and a privacy report.\n\nA fan project I build for fun; nothing to do with Valve. GPL-3.0."),
+        listOf("store.png", "app-page.png", "search.png", "profile.png"), "xUmutKx/PunkStore", 0xFF1B6FA8),
+    MyApp("Claude Chat", t("Claude Code için Android sohbet uygulaması", "An Android chat app for Claude Code"),
+        t("Termux + proot Ubuntu içindeki Claude Code'u, telefonda gerçek bir sohbet arayüzüyle kullan. Uygulama küçük bir köprü (127.0.0.1) üzerinden `claude` ile konuşur.\n\n" +
+            "• Aynı anda birden fazla sohbet: yenisini açınca eskisi arkada çalışmaya devam eder.\n" +
+            "• Çalışırken dans eden maskot: bildirimde, ada (pill) üzerinde, her zaman açık ekranda ve sohbet başlığında.\n" +
+            "• Tek dokunuşla köprüyü başlat, Termux kapansa bile geri getirir.\n" +
+            "• Konuya göre otomatik sohbet başlıkları, model/çaba/izin modu seçimi, ek dosyalar.",
+            "Use Claude Code from Termux + proot Ubuntu through a real chat interface on your phone. The app talks to `claude` through a tiny bridge on 127.0.0.1.\n\n" +
+            "• Several chats at once: open a new one and the old one keeps working in the background.\n" +
+            "• A mascot that dances while Claude works: in the notification, the island pill, the always-on screen and the chat header.\n" +
+            "• One tap starts the bridge, and brings it back if Termux dies.\n" +
+            "• Automatic topic-based chat titles, model/effort/permission pickers, attachments."),
+        emptyList(), "xUmutKx/ClaudeChat", 0xFFD97757),
+    MyApp("Mega Games", t("Tek uygulamada onlarca mini oyun", "Dozens of mini games in one app"),
+        t("Tek bir uygulamada, internet izni olmadan çalışan 3B ve 2B mini oyun koleksiyonu. Oyunlar uygulamanın içinde (WebView + yerel three.js) çalışır; kayıtlar cihazda kalır.\n\n" +
+            "• İzin yok, reklam yok: yalnızca titreşim.\n• Geri tuşu oyundan merkeze, merkezden çıkışa götürür.\n• Fruit Ninja, Subway Surfers, Flappy Bird benzeri ve rahatlama oyunları dahil.",
+            "A collection of 3D and 2D mini games in one app that needs no internet permission. The games run inside the app (WebView + bundled three.js) and saves stay on your device.\n\n" +
+            "• No permissions, no ads: only vibration.\n• Back goes from a game to the hub, from the hub to exit.\n• Includes Fruit Ninja, Subway Surfers and Flappy Bird style games plus relaxing ones."),
+        emptyList(), "xUmutKx/MegaGames", 0xFF7B3FE4),
+)
+
 @Composable
-fun UmutKScreen(s: Store, onOpen: (String) -> Unit) {
+private fun MyIcon(a: MyApp, size: Int) {
+    Box(Modifier.size(size.dp).clip(RoundedCornerShape(size / 5)).background(androidx.compose.ui.graphics.Color(a.color)), contentAlignment = Alignment.Center) {
+        Text(a.name.first().toString(), color = androidx.compose.ui.graphics.Color.White, fontSize = (size * 0.5f).sp, fontWeight = FontWeight.Black)
+    }
+}
+
+/** Compact strip at the bottom of the store: my apps, tap for the full "by UmutK" category. */
+@Composable
+fun UmutKStrip(onOpen: () -> Unit) {
+    androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(myApps, key = { it.name }) { a ->
+            Row(Modifier.width(250.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.card).clickable(onClick = onOpen).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                MyIcon(a, 48)
+                Column(Modifier.padding(start = 10.dp)) {
+                    Text(a.name, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1)
+                    Text(a.tagline, color = Steam.dim, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UmutKScreen(s: Store, onOpen: (String) -> Unit, onBack: () -> Unit) {
     LaunchedEffect(Unit) { s.loadGithub() }
-    val mine = s.ghMap.values.filter { it.categories.firstOrNull() == "by UmutK" }.sortedByDescending { it.updated }
+    var sel by remember { mutableStateOf<MyApp?>(null) }
+    androidx.activity.compose.BackHandler(sel != null) { sel = null }
+    val mine = s.ghMap.values.filter { it.categories.firstOrNull() == "by UmutK" && myApps.none { m -> m.repo.equals(it.pkg.removePrefix("gh:"), true) } }.sortedByDescending { it.updated }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize().background(Steam.bg)) {
-        Text("by UmutK", Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().padding(14.dp), color = androidx.compose.ui.graphics.Color.White, fontSize = 20.sp, letterSpacing = 2.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Row(Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton({ if (sel != null) sel = null else onBack() }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, t("Geri", "Back"), tint = androidx.compose.ui.graphics.Color.White) }
+            Text(sel?.name ?: UMUTK_CAT, Modifier.weight(1f), color = androidx.compose.ui.graphics.Color.White, fontSize = 20.sp, letterSpacing = 2.sp)
+        }
+        val cur = sel
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-            item { SteamSection(t("Uygulamalarım (GitHub)", "My apps (GitHub)")) }
-            if (mine.isEmpty()) item { Text(if (s.ghLoading) t("Yükleniyor…", "Loading…") else t("Henüz herkese açık sürüm yok (özel depolar listelenmez).", "No public releases yet (private repos are not listed)."), Modifier.padding(16.dp), color = Steam.dim, fontSize = 14.sp) }
-            items(mine, key = { it.pkg }) { GhRow(it, onOpen) }
+            if (cur != null) {
+                item {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        MyIcon(cur, 72)
+                        Column(Modifier.padding(start = 14.dp)) {
+                            Text(cur.name, color = androidx.compose.ui.graphics.Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Text(cur.tagline, color = Steam.dim, fontSize = 13.sp)
+                        }
+                    }
+                }
+                if (cur.shots.isNotEmpty()) item {
+                    androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(cur.shots) { f -> AsyncImage("file:///android_asset/umutk/$f", null, Modifier.height(380.dp).clip(RoundedCornerShape(6.dp)).background(Steam.box), contentScale = ContentScale.FillHeight) }
+                    }
+                }
+                item { SteamSection("README") }
+                item { Text(cur.readme, Modifier.padding(16.dp, 4.dp), color = Steam.text, fontSize = 14.sp, lineHeight = 21.sp) }
+                item {
+                    Text("GitHub · ${cur.repo}", Modifier.padding(16.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.btn).clickable { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/${cur.repo}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                item { SteamSection(t("Uygulamalarım", "My apps")) }
+                items(myApps, key = { it.name }) { a ->
+                    Row(Modifier.fillMaxWidth().clickable { sel = a }.padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        MyIcon(a, 52)
+                        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                            Text(a.name, color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            Text(a.tagline, color = Steam.dim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+                if (mine.isNotEmpty()) item { SteamSection(t("GitHub sürümleri", "GitHub releases")) }
+                items(mine, key = { it.pkg }) { GhRow(it, onOpen) }
+            }
         }
     }
 }

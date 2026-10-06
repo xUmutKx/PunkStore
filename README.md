@@ -2,6 +2,8 @@
 
 # Punk Store
 
+**F-Droid, Google Play and Steam in one store.**
+
 I got tired of jumping between F-Droid, the Play Store and Steam every time I wanted to find something for my phone, so I made one store that has all three. It looks like the Steam mobile app, because I just like that interface.
 
 It's a fan project I build for fun. It has nothing to do with Valve. Licensed under GPL-3.0.

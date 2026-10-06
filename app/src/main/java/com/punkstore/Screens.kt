@@ -164,6 +164,7 @@ fun AppCarousel(s: Store, list: List<AppItem>, onOpen: (String) -> Unit) {
 
 @Composable
 fun CategoryScreen(s: Store, cat: String, onOpen: (String) -> Unit, onBack: () -> Unit) {
+    if (cat == UMUTK_CAT) { UmutKScreen(s, onOpen, onBack); return }
     var open by remember { mutableStateOf(false) }
     if (open) FilterSheet(s) { open = false }
     val list = remember(s.apps, cat, s.filters) { s.filt(s.apps.filter { cat == "*" || cat in it.categories }.sortedByDescending { it.updated }) }

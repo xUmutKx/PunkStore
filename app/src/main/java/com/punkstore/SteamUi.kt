@@ -265,7 +265,7 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
             }
         }
         if (s.wishlist.isNotEmpty()) { item { H(t("İstek listen", "Your wishlist")) }; item { AppCarousel(s, s.wishApps, onOpen) } }
-        item { H(t("Kategoriye göz at", "Browse by category")); LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(s.categories.take(24)) { c -> Text(I18n.category(c), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).skinBg().clickable { onCategory(c) }.padding(horizontal = 14.dp, vertical = 10.dp), color = W, fontSize = 14.sp) } } }
+        item { H(t("Kategoriye göz at", "Browse by category")); LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(s.categories.take(24) + UMUTK_CAT) { c -> Text(if (c == UMUTK_CAT) c else I18n.category(c), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).skinBg().clickable { onCategory(c) }.padding(horizontal = 14.dp, vertical = 10.dp), color = W, fontSize = 14.sp) } } }
         if (s.recommended.isNotEmpty()) { item { H(t("Senin için önerilenler", "Recommended for you")) }; item { AppCarousel(s, s.hv(s.recommended), onOpen) } }
         listOf("specials" to t("Steam — indirimdekiler", "Steam — specials"), "top" to t("Steam — çok satanlar", "Steam — top sellers"), "new" to t("Steam — yeni çıkanlar", "Steam — new releases"), "soon" to t("Steam — yakında", "Steam — coming soon")).forEach { (k, title) ->
             s.steamLists[k]?.let { s.hv(it) }?.takeIf { it.isNotEmpty() }?.let { l -> item { Column(Modifier.padding(vertical = 6.dp).then(if (k == "specials") Modifier.padding(horizontal = 8.dp).background(Color(0xFF3B1F16)).padding(vertical = 8.dp) else Modifier)) { H(title); AppCarousel(s, l, onOpen) } } }
@@ -282,6 +282,7 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
         item { Spacer(Modifier.height(8.dp)); SeeAll { onCategory("*") } }
         item { H(t("Son güncellenenler", "Recently updated")) }
         items(recent, key = { it.pkg }) { AppRow(s, it, onOpen) }
+        item { H(UMUTK_CAT); UmutKStrip { onCategory(UMUTK_CAT) } }
         item { Spacer(Modifier.height(24.dp)) }
     }
     }

@@ -246,7 +246,7 @@ fun SectionTitle(text: String, s: Store, modifier: Modifier = Modifier) {
 @Composable
 fun BottomBar(design: Design, tab: Tab, updates: Int, order: List<Tab>, floating: Boolean = false, onTab: (Tab) -> Unit) {
     val icons = mapOf(Tab.DISCOVER to (Icons.Filled.Explore to Icons.Outlined.Explore), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search), Tab.STORE to (Icons.Filled.Storefront to Icons.Outlined.Storefront), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search),
-        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.Download to Icons.Outlined.Download), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person), Tab.UMUTK to (Icons.Filled.Code to Icons.Outlined.Code))
+        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.Download to Icons.Outlined.Download), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person))
     if (design.steam) {
         // Steam'deki gibi çubuk biraz yukarıda durur; altta orantılı bir boşluk kalır
         val dockMod = if (floating) Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp).shadow(10.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(Steam.topBrush).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
