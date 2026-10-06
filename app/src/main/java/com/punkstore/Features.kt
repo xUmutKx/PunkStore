@@ -77,7 +77,7 @@ fun FeatureScreen(s: Store, kind: String, onOpen: (String) -> Unit, onBack: () -
         Header(title, onBack)
         when (kind) {
             "downloads" -> LazyColumn {
-                val tasks = s.dl.tasks.values.sortedWith(compareBy<DlTask>({ it.state.ordinal.let { o -> if (o == DlState.DOWNLOADING.ordinal) -1 else o } }, { it.created }))
+                val tasks = s.dl.tasks.values.sortedWith(compareBy<DlTask>({ it.state.ordinal.let { o -> if (o == DlState.DOWNLOADING.ordinal) -1 else o } }, { -it.created }))
                 item {
                     Row(Modifier.padding(16.dp, 12.dp, 8.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(t("KUYRUK", "QUEUE") + if (tasks.isNotEmpty()) " (${tasks.size})" else "", Modifier.weight(1f), color = Steam.btn, fontSize = 13.sp, letterSpacing = 1.sp)

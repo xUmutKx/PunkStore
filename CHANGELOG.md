@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.40
+- New "by UmutK" tab: my GitHub releases, plus a curated list of GitHub-only apps (ReVanced Manager, Morphe, Magisk, KernelSU, LSPosed, APatch and more). You can add any owner/repo yourself.
+- Bottom tabs can be reordered in Settings.
+- Steam app pages got more sections: features, a ratings graph, DLC, news, art and banners, Points Shop link and similar games.
+- Google sign-in no longer gets a 403 (the embedded page now identifies as a normal browser).
+- Steam sign-in keeps checking for the session cookie, so it finishes even when Steam's login page never reports "loaded".
+- Downloads: the newest download is on top. The Steam account defaults to xUmutKx.
+
 ## 0.26
 - The install button is a plain flat green again, and the panel behind it is a flat Steam box instead of a glossy gradient.
 - The corner of the discount box next to it was cut off. Fixed.

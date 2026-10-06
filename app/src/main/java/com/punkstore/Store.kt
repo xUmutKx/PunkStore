@@ -218,6 +218,21 @@ class Store(app: Application) : AndroidViewModel(app) {
 
     // ---- Steam Mağaza (genel API) ----
     val steamMap = mutableStateMapOf<String, AppItem>()
+    val ghMap = mutableStateMapOf<String, AppItem>()
+    var ghLoading by mutableStateOf(false); private set
+    var ghExtra by mutableStateOf((prefs.getString("ghExtra", "") ?: "").split(',').filter { it.isNotBlank() }); private set
+    fun loadGithub() {
+        if (ghLoading || ghMap.isNotEmpty()) return
+        ghLoading = true
+        viewModelScope.launch { runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }; runCatching { GitHubRepo.curatedItems(ghExtra).forEach { ghMap[it.pkg] = it } }; ghLoading = false }
+    }
+    fun addGithub(full: String) {
+        ghExtra = (ghExtra + full).distinct(); prefs.edit().putString("ghExtra", ghExtra.joinToString(",")).apply()
+        viewModelScope.launch { GitHubRepo.item(full, "Added by you")?.let { ghMap[it.pkg] = it } }
+    }
+    var tabOrder by mutableStateOf((prefs.getString("tabOrder", "") ?: "").split(',').mapNotNull { n -> Tab.values().firstOrNull { it.name == n } }); private set
+    fun orderedTabs(): List<Tab> { val all = Tab.values().filter { it.bottom }; return (tabOrder.filter { it in all } + all.filter { it !in tabOrder }) }
+    fun moveTab(t: Tab, d: Int) { val l = orderedTabs().toMutableList(); val i = l.indexOf(t); val j = i + d; if (i < 0 || j !in l.indices) return; l.removeAt(i); l.add(j, t); tabOrder = l; prefs.edit().putString("tabOrder", l.joinToString(",") { it.name }).apply() }
     var steamLists by mutableStateOf<Map<String, List<AppItem>>>(emptyMap()); private set
     var steamErr by mutableStateOf<String?>(null); private set
     fun loadSteamStore() { viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamLists = m; saveExtra(); steamErr = null }.onFailure { steamErr = it.message } } }
@@ -300,7 +315,7 @@ class Store(app: Application) : AndroidViewModel(app) {
 
     // Steam hesabı (Web API)
     var steamKey by mutableStateOf(prefs.getString("steamKey", "") ?: ""); private set
-    var steamWho by mutableStateOf(prefs.getString("steamWho", "") ?: ""); private set
+    var steamWho by mutableStateOf(prefs.getString("steamWho", "").orEmpty().ifBlank { "xUmutKx" }); private set
     var steamId by mutableStateOf(prefs.getString("steamId", "") ?: ""); private set
     fun saveSteam(key: String, who: String, id: String) { steamKey = key; steamWho = who; steamId = id; prefs.edit().putString("steamKey", key).putString("steamWho", who).putString("steamId", id).apply() }
 
@@ -462,7 +477,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     private fun loadExtra() = runCatching {
         val l = json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(AppItem.serializer()), extraFile.readText())
         l.filter { it.source == "STEAM" }.forEach { steamMap[it.pkg] = it }
-        playMap = l.filter { it.source != "STEAM" }.associateBy { it.pkg }
+        playMap = l.filter { it.source != "STEAM" && it.source != "GITHUB" }.associateBy { it.pkg }
     }
 
     /** Google Play üst listeleri + kurulu uygulamaların güncelleme denetimi. */
@@ -521,7 +536,7 @@ class Store(app: Application) : AndroidViewModel(app) {
 
     fun isInstalled(a: AppItem) = installed.containsKey(a.pkg)
     fun hasUpdate(a: AppItem) = a.pkg !in ignored && installed[a.pkg]?.let { it < a.versionCode } == true
-    fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg]
+    fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg] ?: ghMap[pkg]
     /** Bilinen her kaynaktan (katalog, kayıtlı, cihaz) */
     fun anyPkg(pkg: String) = byPkg(pkg) ?: resolve(pkg) ?: localApps.firstOrNull { it.pkg == pkg } ?: steamOwned.firstOrNull { it.pkg == pkg }
 

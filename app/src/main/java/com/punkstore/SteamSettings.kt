@@ -35,6 +35,17 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
             SteamRow(t("Google hesabı", "Google account"), s.googleEmail ?: t("Anonim oturum (giriş yaparsan Play daha hızlı)", "Anonymous session (sign in for faster Play)"), Icons.Filled.AccountCircle,
                 onClick = { if (s.googleEmail == null) onGoogleLogin() }, trailing = if (s.googleEmail != null) { { Text(t("Çıkış", "Sign out"), Modifier.clip(RoundedCornerShape(4.dp)).background(Steam.panel2).pressScale({ s.googleLogout() }).padding(horizontal = 12.dp, vertical = 8.dp), color = Color.White, fontWeight = FontWeight.Bold) } } else null)
 
+            SteamSection(t("Alt sekmeler (sıralama)", "Bottom tabs (order)"))
+            s.orderedTabs().forEachIndexed { i, tb ->
+                SteamRow(tb.label, null, null, chevron = false, trailing = {
+                    Row {
+                        Text("▲", Modifier.clip(RoundedCornerShape(4.dp)).background(Steam.panel2).pressScale({ s.moveTab(tb, -1) }).padding(horizontal = 14.dp, vertical = 8.dp), color = if (i > 0) Color.White else Steam.dim)
+                        Spacer(Modifier.width(6.dp))
+                        Text("▼", Modifier.clip(RoundedCornerShape(4.dp)).background(Steam.panel2).pressScale({ s.moveTab(tb, 1) }).padding(horizontal = 14.dp, vertical = 8.dp), color = Color.White)
+                    }
+                })
+            }
+
             SteamSection(t("Tasarım", "Design"))
             Design.values().forEach { d ->
                 val (title, sub) = when (d) {

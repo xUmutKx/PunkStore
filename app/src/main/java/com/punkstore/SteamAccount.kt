@@ -149,8 +149,15 @@ fun SteamLoginView(onCookie: (String) -> Unit) {
         AndroidView(factory = { c ->
             WebView(c).apply {
                 settings.javaScriptEnabled = true; settings.domStorageEnabled = true
+                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
                 setBackgroundColor(android.graphics.Color.parseColor("#1B2838"))
-                CookieManager.getInstance().setAcceptCookie(true)
+                CookieManager.getInstance().setAcceptCookie(true); CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                // Steam giriş sayfası tek sayfa uygulaması gibi çalışır (onPageFinished her zaman tetiklenmez): çerezi düzenli yokla
+                val poll = object : Runnable { override fun run() {
+                    val ck = listOf("https://steamcommunity.com", "https://store.steampowered.com", "https://login.steampowered.com").map { CookieManager.getInstance().getCookie(it).orEmpty() }.firstOrNull { it.contains("steamLoginSecure") }
+                    if (!done && ck != null) { done = true; CookieManager.getInstance().flush(); onCookie(ck) } else if (!done) postDelayed(this, 1000)
+                } }
+                postDelayed(poll, 1500)
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { loading = true }
                     override fun onPageFinished(view: WebView, url: String?) {

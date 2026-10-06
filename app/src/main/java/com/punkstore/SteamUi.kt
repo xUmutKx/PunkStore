@@ -300,7 +300,7 @@ fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
         item { Text(t("İNDİRİLENLER", "DOWNLOADS"), Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().padding(14.dp), color = W, fontSize = 20.sp, letterSpacing = 2.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
         item { QuickRow(QA_UPDATES, onNav) }
-        val active = s.dl.tasks.values.toList()
+        val active = s.dl.tasks.values.sortedByDescending { it.created }
         if (active.isNotEmpty()) {
             item { H(t("İndirilenler", "Downloads")) }
             items(active, key = { "d" + it.pkg }) { tk -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text(tk.name, color = W, fontSize = 14.sp, fontWeight = FontWeight.SemiBold); DownloadLine(s, tk.pkg) } }
@@ -336,7 +336,7 @@ fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
             ai.flags and (android.content.pm.ApplicationInfo.FLAG_SYSTEM or android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0 ||
                 listOf("/system", "/product", "/vendor", "/system_ext", "/apex", "/odm").any { ai.sourceDir.startsWith(it) } }.getOrDefault(false)
         fun isGame(a: AppItem) = a.categories.any { it.contains("Game", true) } || runCatching { pm.getApplicationInfo(a.pkg, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }.getOrDefault(false)
-        val inst = s.libApps.filter { s.isInstalled(it) && (s.showSystem || !isSys(it.pkg)) }.filter { a -> when (instFilter) { 1 -> isGame(a); 2 -> (s.launches[a.pkg] ?: 0) > 0 || (s.lastPlayed[a.pkg] ?: 0L) > 0; else -> true } }.sortedByDescending { runCatching { pm.getPackageInfo(it.pkg, 0).firstInstallTime }.getOrDefault(0L) }
+        val inst = s.libApps.filter { s.isInstalled(it) && (s.showSystem || !isSys(it.pkg)) }.filter { a -> when (instFilter) { 1 -> isGame(a); 2 -> (s.launches[a.pkg] ?: 0) > 0 || (s.lastPlayed[a.pkg] ?: 0L) > 0; else -> true } }.sortedByDescending { runCatching { pm.getPackageInfo(it.pkg, 0).lastUpdateTime }.getOrDefault(0L) }
         run {
             item {
                 Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -371,7 +371,7 @@ fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
 // ---------------- DETAY: Steam mağaza sayfası ----------------
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
-fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -> Unit) {
+fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Unit = {}, onCategory: (String) -> Unit) {
     val ctx = LocalContext.current
     val df = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     var more by remember(a.pkg) { mutableStateOf(false) }
@@ -395,27 +395,6 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
         }
         Column(Modifier.padding(horizontal = 16.dp)) {
             Text(a.name, color = W, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
-            @Composable fun Info(k: String, v: String, link: Boolean = false) = Row(Modifier.padding(vertical = 2.dp)) { Text(k, Modifier.width(110.dp), color = Steam.dim, fontSize = 15.sp); Text(v, color = if (link) Steam.link else Steam.text, fontSize = 15.sp, modifier = Modifier.weight(1f)) }
-            if (a.developer.isNotBlank() || a.license.isNotBlank()) Info(t("Geliştirici", "Developer"), a.developer.ifBlank { a.license }, true)
-            if (a.source == "STEAM" && a.license.isNotBlank()) Info(t("Yayıncı", "Publisher"), a.license, true)
-            Info(t("Kaynak", "Source"), when (a.source) { "PLAY" -> "Google Play"; "STEAM" -> "Steam"; else -> "F-Droid" }, true)
-            if (a.updated > 0) Info(t("Güncellendi", "Updated"), df.format(Date(a.updated)))
-            Info(if (a.source == "STEAM") t("Çıkış", "Released") else t("Sürüm", "Version"), a.versionName.ifBlank { "-" })
-            if (a.installs.isNotBlank()) Info(t("İndirme", "Downloads"), a.installs)
-            a.extra["platforms"]?.takeIf { it.isNotBlank() }?.let { Info(t("Platform", "Platforms"), it) }
-            a.extra["achievements"]?.let { Info(t("Başarım", "Achievements"), it) }
-            a.extra["recs"]?.let { Info(t("Öneri", "Recommended"), it) }
-            Spacer(Modifier.height(16.dp))
-            Text(desc, color = Steam.text, fontSize = 16.sp, lineHeight = 24.sp, maxLines = if (more) Int.MAX_VALUE else 7, overflow = TextOverflow.Ellipsis)
-            if (desc.length > 300) Text(if (more) t("Daha az", "Show less") else t("Daha fazla", "Show more"), Modifier.clickable { more = !more }.padding(vertical = 6.dp), color = Steam.link)
-            val tags = (a.tags + a.categories).distinct().take(10)
-            if (tags.isNotEmpty()) {
-                Text(t("ETİKETLER", "TAGS"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { tags.forEach { c -> Text(I18n.category(c), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).clickable { onCategory(c) }.padding(horizontal = 14.dp, vertical = 9.dp), color = Steam.link, fontSize = 15.sp, maxLines = 1) } }
-            }
-            // ---- DEĞERLENDİRMELER
-            Text(t("DEĞERLENDİRMELER", "REVIEWS"), Modifier.padding(top = 18.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(12.dp)) { ScoresBlock(a) }
             // ---- GÖRSELLER (kaydırmalı)
             if (gal.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
@@ -471,6 +450,28 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
                     }
                 }
             }
+            @Composable fun Info(k: String, v: String, link: Boolean = false) = Row(Modifier.padding(vertical = 2.dp)) { Text(k, Modifier.width(110.dp), color = Steam.dim, fontSize = 15.sp); Text(v, color = if (link) Steam.link else Steam.text, fontSize = 15.sp, modifier = Modifier.weight(1f)) }
+            if (a.developer.isNotBlank() || a.license.isNotBlank()) Info(t("Geliştirici", "Developer"), a.developer.ifBlank { a.license }, true)
+            if (a.source == "STEAM" && a.license.isNotBlank()) Info(t("Yayıncı", "Publisher"), a.license, true)
+            Info(t("Kaynak", "Source"), when (a.source) { "PLAY" -> "Google Play"; "STEAM" -> "Steam"; else -> "F-Droid" }, true)
+            if (a.updated > 0) Info(t("Güncellendi", "Updated"), df.format(Date(a.updated)))
+            Info(if (a.source == "STEAM") t("Çıkış", "Released") else t("Sürüm", "Version"), a.versionName.ifBlank { "-" })
+            if (a.installs.isNotBlank()) Info(t("İndirme", "Downloads"), a.installs)
+            a.extra["platforms"]?.takeIf { it.isNotBlank() }?.let { Info(t("Platform", "Platforms"), it) }
+            a.extra["achievements"]?.let { Info(t("Başarım", "Achievements"), it) }
+            a.extra["recs"]?.let { Info(t("Öneri", "Recommended"), it) }
+            Spacer(Modifier.height(16.dp))
+            Text(desc, color = Steam.text, fontSize = 16.sp, lineHeight = 24.sp, maxLines = if (more) Int.MAX_VALUE else 7, overflow = TextOverflow.Ellipsis)
+            if (desc.length > 300) Text(if (more) t("Daha az", "Show less") else t("Daha fazla", "Show more"), Modifier.clickable { more = !more }.padding(vertical = 6.dp), color = Steam.link)
+            val tags = (a.tags + a.categories).distinct().take(10)
+            if (tags.isNotEmpty()) {
+                Text(t("ETİKETLER", "TAGS"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { tags.forEach { c -> Text(I18n.category(c), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).clickable { onCategory(c) }.padding(horizontal = 14.dp, vertical = 9.dp), color = Steam.link, fontSize = 15.sp, maxLines = 1) } }
+            }
+            if (a.source == "STEAM") SteamExtras(s, a, onOpen, ::web)
+            // ---- DEĞERLENDİRMELER
+            Text(t("DEĞERLENDİRMELER", "REVIEWS"), Modifier.padding(top = 18.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(12.dp)) { ScoresBlock(a) }
             // ---- STEAMDB
             if (a.source == "STEAM") {
                 Text("STEAMDB", Modifier.padding(top = 18.dp, bottom = 8.dp), color = W, fontSize = 16.sp)

@@ -24,6 +24,9 @@ fun GoogleLoginScreen(onToken: (email: String, token: String) -> Unit, onBack: (
             WebView(ctx).apply {
                 settings.javaScriptEnabled = true; settings.domStorageEnabled = true; settings.databaseEnabled = true; settings.allowContentAccess = true
                 settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+                // Google gömülü WebView kullanıcı ajanını ("; wv") 403 disallowed_useragent ile reddeder; normal Chrome gibi görün
+                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                CookieManager.getInstance().setAcceptCookie(true); CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 var done = false
                 // Aurora Store gibi: giriş sayfasındaki 'profileIdentifier' öğesinden e-posta okunur; öğe geç gelebilir, birkaç kez denenir
                 fun readMail(view: WebView, cookies: String, tok: String, tries: Int) {
