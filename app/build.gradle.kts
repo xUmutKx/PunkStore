@@ -12,8 +12,8 @@ android {
         applicationId = "com.punkstore.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 36
-        versionName = "0.36"
+        versionCode = 38
+        versionName = "0.38"
     }
     buildTypes {
         release {

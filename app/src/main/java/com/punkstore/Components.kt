@@ -137,7 +137,7 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
             else -> Color(0xFF5BA02B)
         }
         Box(
-            modifier.clip(shape).background(if (base == Color(0xFF5BA02B)) Brush.verticalGradient(listOf(Color(0xFF75B022), Color(0xFF588A1B))) else Brush.verticalGradient(listOf(base, base))).drawBehind {
+            modifier.clip(shape).then(if (Steam.bevel) Modifier.border(1.dp, Steam.edgeHi, shape) else if (Steam.pal === PAL_2013) Modifier.border(1.dp, Steam.edgeLo, shape) else Modifier).background(if (base == Color(0xFF5BA02B)) Brush.verticalGradient(listOf(Color(0xFF75B022), Color(0xFF588A1B))) else Brush.verticalGradient(listOf(base, base))).drawBehind {
                 if (prog > 0f) drawRect(Color(0xFF6BA524), size = androidx.compose.ui.geometry.Size(size.width * prog, size.height),
                     alpha = if (st == DlState.VERIFYING || st == DlState.INSTALLING) pulse.value else 1f)
             }.pressScale(onClick)
@@ -354,10 +354,11 @@ fun DownloadDock(s: Store, onOpen: () -> Unit) {
         val tk = tasks.firstOrNull { it.state == DlState.DOWNLOADING } ?: tasks.firstOrNull() ?: return@AnimatedVisibility
         val prog by androidx.compose.animation.core.animateFloatAsState(if (tk.state == DlState.INSTALLING || tk.state == DlState.VERIFYING) 1f else tk.progress, androidx.compose.animation.core.tween(250), label = "dock")
         val mat = Steam.material
-        val bg = if (mat) MaterialTheme.colorScheme.surfaceContainerHigh else Color(0xE61B2838)
+        val bg = if (mat) MaterialTheme.colorScheme.surfaceContainerHigh else if (Steam.pal === PAL_MODERN) Color(0xE61B2838) else Steam.panel
         val fg = if (mat) MaterialTheme.colorScheme.onSurface else Color.White
         val dim = if (mat) MaterialTheme.colorScheme.onSurfaceVariant else Steam.dim
         Column(Modifier.fillMaxWidth().background(bg).clickable(onClick = onOpen)) {
+            if (!mat && Steam.pal !== PAL_MODERN) Box(Modifier.fillMaxWidth().height(1.dp).background(Steam.edgeHi))
             DlBar(prog, color = if (tk.state == DlState.FAILED) Color(0xFFA34C25) else if (mat) MaterialTheme.colorScheme.primary else Steam.btn, track = if (mat) MaterialTheme.colorScheme.surfaceVariant else Color(0x33FFFFFF))
             Row(Modifier.padding(horizontal = 12.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tk.name + if (tasks.size > 1) "  +${tasks.size - 1}" else "", Modifier.weight(1f), color = fg, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

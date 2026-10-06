@@ -112,7 +112,7 @@ object PlayRepo {
         apkSize = a.size, versionName = a.versionName, versionCode = a.versionCode,
         screenshots = a.screenshots.map { it.url }.filter { it.isNotBlank() }.take(15),
         web = a.developerWebsite, source = "PLAY", offerType = a.offerType,
-        rating = a.rating.average, ads = a.containsAds, nonFree = true, banner = runCatching { a.coverArtwork.url }.getOrDefault("").orEmpty().ifBlank { a.screenshots.firstOrNull { it.width > it.height }?.url.orEmpty() }, developer = a.developerName, installs = a.downloadString, updated = runCatching { java.text.SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).parse(a.updatedOn)?.time ?: 0L }.getOrDefault(0L), tags = a.tags.map { it.name }.take(8), price = if (a.isFree) "" else a.price,
+        rating = a.rating.average, ads = a.containsAds, nonFree = true, banner = runCatching { a.coverArtwork.url }.getOrDefault("").orEmpty().ifBlank { a.screenshots.firstOrNull { it.width > it.height }?.url.orEmpty() }, developer = a.developerName, installs = a.downloadString, updated = runCatching { java.text.SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).parse(a.updatedOn)?.time ?: 0L }.getOrDefault(0L), tags = a.tags.map { it.name }.take(8), price = if (a.isFree) "" else a.price, discount = playDiscount(a), origPrice = playOrig(a),
     )
 
     suspend fun search(c: Context, q: String): List<AppItem> = withAuth(c) { au ->
@@ -164,3 +164,12 @@ object PlayRepo {
             .filter { it.url.isNotBlank() }
     }
 }
+
+
+/** Play'in teklif ayrıntılarından (varsa) indirim yüzdesi / eski fiyat; alan bulunamazsa 0 / boş. */
+private fun playDiscount(a: com.aurora.gplayapi.data.models.App): Int = runCatching {
+    a.offerDetails.values.firstNotNullOfOrNull { Regex("(\\d{1,2})\\s*%").find(it)?.groupValues?.get(1)?.toIntOrNull() } ?: 0
+}.getOrDefault(0)
+private fun playOrig(a: com.aurora.gplayapi.data.models.App): String = runCatching {
+    a.offerDetails.entries.firstOrNull { it.key.contains("original", true) || it.key.contains("list", true) }?.value.orEmpty().takeIf { it != a.price }.orEmpty()
+}.getOrDefault("")

@@ -74,13 +74,20 @@ fun Banner(a: AppItem, modifier: Modifier = Modifier, icon: Int = 0, fade: Boole
 fun BuyPrice(a: AppItem, modifier: Modifier = Modifier) {
     val free = a.price.isBlank() && a.discount == 0
     val disc = a.discount > 0
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (free || disc) Box(Modifier.fillMaxHeight().background(Color(0xFF4C6B22)).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-            Text(if (disc) "-${a.discount}%" else "-100%", color = Color(0xFFBEEE11), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+    // dönemine göre: 2006 = zeytin yeşili + altın, kabartmalı kenar; 2013 = koyu karbon + limon yeşili; modern = Steam mobil
+    val old06 = Steam.pal === PAL_2006; val old13 = Steam.pal === PAL_2013
+    val discBg = if (old06) Color(0xFF3E4637) else if (old13) Color(0xFF2B3D0A) else Color(0xFF4C6B22)
+    val discFg = if (old06) Color(0xFFC4B550) else Color(0xFFBEEE11)
+    val priceBg = if (old06) Color(0xFF5A6A50) else if (old13) Color(0xFF1B1B1B) else Color(0xFF344654)
+    val priceFg = if (old06) Color(0xFFE5E2DF) else if (old13) Color(0xFFB8B6B4) else Color(0xFFBFD7EA)
+    val frame = if (old06) Modifier.border(1.dp, Steam.edgeHi) else if (old13) Modifier.border(1.dp, Steam.edgeLo) else Modifier
+    Row(modifier.then(frame), verticalAlignment = Alignment.CenterVertically) {
+        if (free || disc) Box(Modifier.fillMaxHeight().background(discBg).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Text(if (disc) "-${a.discount}%" else "-100%", color = discFg, fontSize = if (old06) 20.sp else 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
         }
-        Column(Modifier.fillMaxHeight().background(Color(0xFF344654)).padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.End) {
+        Column(Modifier.fillMaxHeight().background(priceBg).padding(horizontal = 14.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.End) {
             if (disc && a.origPrice.isNotBlank()) Text(a.origPrice, color = Color(0xFF9AA7B0), fontSize = 13.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough, lineHeight = 14.sp, maxLines = 1, softWrap = false)
-            Text(if (free) t("ÜCRETSİZ", "FREE") else a.price, color = Color(0xFFBFD7EA), fontSize = 19.sp, maxLines = 1, softWrap = false)
+            Text(if (free) t("ÜCRETSİZ", "FREE") else a.price, color = priceFg, fontSize = 19.sp, maxLines = 1, softWrap = false)
         }
     }
 }
@@ -329,7 +336,7 @@ fun SteamUpdates(s: Store, onOpen: (String) -> Unit, onNav: (String) -> Unit = {
             ai.flags and (android.content.pm.ApplicationInfo.FLAG_SYSTEM or android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0 ||
                 listOf("/system", "/product", "/vendor", "/system_ext", "/apex", "/odm").any { ai.sourceDir.startsWith(it) } }.getOrDefault(false)
         fun isGame(a: AppItem) = a.categories.any { it.contains("Game", true) } || runCatching { pm.getApplicationInfo(a.pkg, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }.getOrDefault(false)
-        val inst = s.libApps.filter { s.isInstalled(it) && (s.showSystem || !isSys(it.pkg)) }.filter { a -> when (instFilter) { 1 -> isGame(a); 2 -> (s.launches[a.pkg] ?: 0) > 0 || (s.lastPlayed[a.pkg] ?: 0L) > 0; else -> true } }.sortedBy { it.name.lowercase() }
+        val inst = s.libApps.filter { s.isInstalled(it) && (s.showSystem || !isSys(it.pkg)) }.filter { a -> when (instFilter) { 1 -> isGame(a); 2 -> (s.launches[a.pkg] ?: 0) > 0 || (s.lastPlayed[a.pkg] ?: 0L) > 0; else -> true } }.sortedByDescending { runCatching { pm.getPackageInfo(it.pkg, 0).firstInstallTime }.getOrDefault(0L) }
         run {
             item {
                 Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -487,8 +494,9 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
             if (a.source != "STEAM") {
                 Text(t("GİZLİLİK RAPORU", "PRIVACY REPORT"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).padding(14.dp)) {
-                    Text((if (a.ads) "⚠ " + t("Reklam içeriyor", "Contains ads") else "✓ " + t("Reklam yok", "No ads")), color = Steam.text, fontSize = 14.sp)
-                    Text((if (a.tracking) "⚠ " + t("İzleyici içeriyor", "Contains trackers") else "✓ " + t("İzleyici bildirilmemiş", "No trackers reported")), Modifier.padding(top = 4.dp), color = Steam.text, fontSize = 14.sp)
+                    val fd = a.source == "FDROID"
+                    Text(if (a.ads) "⚠ " + t("Reklam içeriyor", "Contains ads") else if (fd) "✓ " + t("F-Droid: reklam işaretlenmemiş", "F-Droid: no ads flagged") else "✓ " + t("Geliştirici reklam bildirmemiş (Google Play)", "No ads declared by the developer (Google Play)"), color = Steam.text, fontSize = 14.sp)
+                    Text(if (a.tracking) "⚠ " + t("Kullanıcıyı izliyor (F-Droid uyarısı)", "Tracks users (F-Droid anti-feature)") else if (fd) "✓ " + t("F-Droid: izleme uyarısı yok", "F-Droid: no tracking anti-feature") else "? " + t("İzleyiciler bilinmiyor — Exodus raporuna bak", "Trackers unknown — see the Exodus report"), Modifier.padding(top = 4.dp), color = if (!a.tracking && !fd) Steam.dim else Steam.text, fontSize = 14.sp)
                     Text("Exodus Privacy " + t("raporunu aç →", "report →"), Modifier.padding(top = 8.dp).clickable { web("https://reports.exodus-privacy.eu.org/en/reports/search/${a.pkg}/") }, color = Steam.link, fontSize = 14.sp)
                 }
             }
@@ -503,7 +511,11 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
                     }
                     else -> rv.take(10).forEach { r ->
                         var open by remember(r.text) { mutableStateOf(false) }
-                        Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).clickable { open = !open }.padding(12.dp)) {
+                        val themed = Steam.pal !== PAL_MODERN
+                        val accent = if (r.up == true) Steam.topAccent.takeIf { themed } ?: Steam.link else if (r.up == false) Color(0xFFC4501F) else Color(0xFFF2A33A)
+                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(if (themed) Brush.verticalGradient(Steam.panelGrad) else Brush.verticalGradient(listOf(Steam.box, Steam.box))).then(if (Steam.bevel) Modifier.border(1.dp, Steam.edgeHi) else Modifier).clickable { open = !open }) {
+                        Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
+                        Column(Modifier.weight(1f).padding(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (r.up != null) Icon(if (r.up) Icons.Filled.ThumbUp else Icons.Filled.ThumbDown, null, tint = if (r.up) Steam.link else Color(0xFFA34C25), modifier = Modifier.size(20.dp))
                                 else Text("★".repeat(r.stars.coerceIn(0, 5)), color = Color(0xFFF2A33A), fontSize = 14.sp)
@@ -515,6 +527,7 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onCategory: (String) -
                             }
                             Text(r.text, Modifier.padding(top = 8.dp), color = Steam.text, fontSize = 14.sp, lineHeight = 20.sp, maxLines = if (open) Int.MAX_VALUE else 5, overflow = TextOverflow.Ellipsis)
                             if (r.votes > 0) Text(t("${r.votes} kişi faydalı buldu", "${r.votes} found this helpful"), Modifier.padding(top = 6.dp), color = Steam.dim, fontSize = 11.sp)
+                        }
                         }
                     }
                 }
