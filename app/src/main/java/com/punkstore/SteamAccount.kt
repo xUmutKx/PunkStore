@@ -15,6 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
@@ -77,6 +79,7 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit, onNav: (String) -> Unit = {
                                 (p.note ?: s.steamAccErr)?.let { Text(it, Modifier.padding(top = 12.dp), color = Color(0xFFE0B25A), fontSize = 13.sp) }
                             }
                         }
+                        item { SteamDbCard(s) }
                         item { SteamGamesHeader(p) }
                         items(p.games, key = { it.appId }) { g -> SteamGameRow(g, Modifier.animateItem()) { game = g } }
                         item {
@@ -90,6 +93,88 @@ fun SteamAccountScreen(s: Store, onBack: () -> Unit, onNav: (String) -> Unit = {
                 }
             }
         }
+    }
+}
+
+/** Shows SteamDB's page for the user to pass its Cloudflare human check; reads the data as soon as the page has loaded and closes itself. */
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun SteamDbVerify(s: Store, onClose: () -> Unit) {
+    var web by remember { mutableStateOf<WebView?>(null) }
+    var title by remember { mutableStateOf("") }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Column(Modifier.fillMaxSize().background(Steam.bg).statusBarsPadding().navigationBarsPadding()) {
+            SteamPageHeader(t("SteamDB doğrulaması", "SteamDB check"), onClose)
+            Text(t("SteamDB'nin insan doğrulamasını (kutucuğu) tamamla. Sayfa yüklenince veriler otomatik alınır ve bu pencere kapanır.", "Complete SteamDB's human check (the box). Once the page loads the data is read automatically and this window closes."),
+                Modifier.fillMaxWidth().background(Steam.panel).padding(12.dp), color = Steam.text, fontSize = 13.sp)
+            AndroidView(factory = { c ->
+                WebView(c).apply {
+                    settings.javaScriptEnabled = true; settings.domStorageEnabled = true; settings.userAgentString = SteamDbWeb.UA
+                    setBackgroundColor(android.graphics.Color.parseColor("#1B2838"))
+                    CookieManager.getInstance().setAcceptCookie(true); CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    webViewClient = WebViewClient()
+                    loadUrl(SteamDbWeb.url(s.steamDbId, s.steamDbCc))
+                    web = this
+                }
+            }, modifier = Modifier.weight(1f).fillMaxWidth(), onRelease = { it.destroy(); web = null })
+        }
+    }
+    LaunchedEffect(web) {
+        val w = web ?: return@LaunchedEffect
+        var stable = 0; var lastN = -1
+        while (true) {
+            kotlinx.coroutines.delay(1500)
+            var raw: String? = null
+            w.evaluateJavascript(SteamDbWeb.script) { raw = it }
+            kotlinx.coroutines.delay(300)
+            val (ti, d) = SteamDbWeb.parse(raw, s.steamDbId, s.steamDbCc)
+            title = ti
+            if (d != null) { if (d.games.size == lastN) stable++ else stable = 0; lastN = d.games.size; if (stable >= 1) { s.acceptSteamDb(d); onClose(); return@LaunchedEffect } }
+        }
+    }
+}
+
+/** SteamDB account summary + most played games (default source; switch it off in Settings). */
+@Composable
+fun SteamDbCard(s: Store) {
+    var verify by remember { mutableStateOf(false) }
+    if (verify) SteamDbVerify(s) { verify = false }
+    // SteamDB asked for a human check in the background read: show the check page right away
+    LaunchedEffect(s.steamDbErr) { if (s.steamDbErr?.startsWith(SteamDbWeb.CHECK) == true) verify = true }
+    LaunchedEffect(s.steamDbOn, s.steamDbId, s.steamDbCc) {
+        val d = s.steamDb
+        if (s.steamDbOn && (d == null || d.id != s.steamDbId || d.cc != s.steamDbCc || System.currentTimeMillis() - d.at > 6 * 3600_000L)) s.loadSteamDb()
+    }
+    if (!s.steamDbOn) return
+    val d = s.steamDb?.takeIf { it.id == s.steamDbId && it.cc == s.steamDbCc }
+    Column(Modifier.fillMaxWidth()) {
+        SteamSection("SteamDB · ${s.steamDbId}")
+        if (s.steamDbBusy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Steam.blue, trackColor = Steam.panel)
+        if (d == null) {
+            Column(Modifier.fillMaxWidth().background(Steam.panel).padding(16.dp)) {
+                Text(s.steamDbErr ?: t("SteamDB'den hesap bilgileri alınıyor…", "Loading account info from SteamDB…"), color = if (s.steamDbErr != null) Color(0xFFE07B53) else Steam.dim, fontSize = 13.sp)
+                if (s.steamDbErr != null && !s.steamDbBusy) {
+                    Text(t("SteamDB'yi aç ve doğrula", "Open SteamDB and verify"), Modifier.padding(top = 12.dp).clip(RoundedCornerShape(4.dp)).background(Steam.blue).pressScale({ verify = true }).padding(horizontal = 16.dp, vertical = 10.dp), color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            val items = listOf(d.value to t("Hesap değeri", "Account value"), d.level to t("Seviye", "Level"), d.played to t("Oynanan", "Played")).filter { it.first.isNotBlank() }
+            if (items.isNotEmpty()) SteamStats(*items.toTypedArray())
+            if (d.xp.isNotBlank()) Text("XP  ${d.xp}", Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 20.dp, vertical = 8.dp), color = Steam.dim, fontSize = 13.sp)
+            d.games.forEach { g ->
+                Row(Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 12.dp, vertical = 3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF16202D))
+                    .pressScale({ Browser.open("https://steamdb.info/app/${g.appId}/") }), verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(g.header, null, Modifier.width(112.dp).height(52.dp).background(Color(0xFF0E141B)), contentScale = ContentScale.Crop)
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text(g.name, color = Steam.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(listOfNotNull(g.hours.takeIf { it > 0 }?.let { "%.1f h".format(it) }, g.price.ifBlank { null }, g.pct.ifBlank { null }).joinToString("  ·  "), color = Steam.dim, fontSize = 12.sp)
+                    }
+                }
+            }
+            Text(t("Veriler SteamDB hesap hesaplayıcısından; ", "Data from SteamDB's account calculator; ") + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(Date(d.at)),
+                Modifier.fillMaxWidth().background(Steam.bg).padding(16.dp), color = Steam.dim, fontSize = 11.sp)
+        }
+        s.steamDbErr?.takeIf { d != null }?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = Color(0xFFE07B53), fontSize = 12.sp) }
     }
 }
 
@@ -115,7 +200,7 @@ private fun SteamGameRow(g: SteamLink.Game, modifier: Modifier, onClick: () -> U
 @Composable
 private fun SteamConnect(s: Store, onBack: () -> Unit, onLogin: () -> Unit) {
     var who by remember { mutableStateOf(s.steamWho) }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         SteamPageHeader(t("Steam hesabı", "Steam account"), onBack)
         Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFF1B2838), Steam.bg))).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Filled.SportsEsports, null, tint = Steam.blue, modifier = Modifier.size(64.dp))
@@ -136,6 +221,8 @@ private fun SteamConnect(s: Store, onBack: () -> Unit, onLogin: () -> Unit) {
             Text(t("Girişsiz yalnızca profilde görünen (son/çok oynanan) oyunlar gelir. Profil herkese açık olmalı.", "Without signing in only games shown on the profile (recent / most played) are listed. The profile must be public."), Modifier.padding(top = 10.dp), color = Steam.dim, fontSize = 12.sp)
         }
         if (s.steamLoading) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Steam.blue, trackColor = Steam.panel)
+        SteamDbCard(s)
+        Spacer(Modifier.height(40.dp))
     }
 }
 

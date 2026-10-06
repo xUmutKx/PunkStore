@@ -106,6 +106,18 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
             }
 
             SteamSection(t("Kaynaklar", "Sources"))
+            SteamSwitchRow(t("Steam oyunlarını göster", "Show Steam games"), t("Mağazada, aramada, Keşfet'te ve kütüphanede. Kapalıyken Punk Store yalnızca uygulama mağazası olarak çalışır.", "In the store, search, Discover and library. When off, Punk Store works as a plain app store."), s.showSteam) { s.changeShowSteam(it) }
+            SteamSwitchRow("SteamDB", t("Steam profil verisi (hesap değeri, seviye, en çok oynananlar) SteamDB hesap hesaplayıcısından gelir", "Steam profile data (account value, level, most played) from SteamDB's account calculator"), s.steamDbOn) { s.setSteamDb(it) }
+            if (s.steamDbOn) {
+                var dbId by remember { mutableStateOf(s.steamDbId) }
+                var dbCc by remember { mutableStateOf(s.steamDbCc) }
+                Column(Modifier.fillMaxWidth().background(Steam.panel).padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    Text(t("SteamID64 (SteamDB sayfasındaki sayı)", "SteamID64 (the number in the SteamDB URL)"), color = Steam.dim, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
+                    SteamField(dbId, { dbId = it.filter { c -> c.isDigit() }; s.setSteamDb(true, id = dbId) }, SteamDbWeb.DEFAULT_ID)
+                    Text(t("Para birimi (cc), örn. tr, us, eu", "Currency (cc), e.g. tr, us, eu"), color = Steam.dim, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                    SteamField(dbCc, { dbCc = it.take(3); s.setSteamDb(true, cc = dbCc) }, SteamDbWeb.DEFAULT_CC)
+                }
+            }
             SteamRow("F-Droid", "${s.fdroid.size} " + t("uygulama", "apps"), chevron = false)
             SteamRow(t("Kataloğu yenile", "Refresh catalog"), null, Icons.Filled.Refresh, onClick = { s.refresh() }, chevron = false)
             SteamRow(t("Yedekle / geri yükle", "Backup / restore"), t("Ayarlar, istek listesi, kütüphane, koleksiyonlar", "Settings, wishlist, library, collections"), Icons.Filled.Backup, onClick = { onNav("backup") })

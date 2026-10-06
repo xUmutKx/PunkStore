@@ -37,6 +37,8 @@ object GitHubRepo {
         "Aliucord/Aliucord" to "Mods", "NewPipe/NewPipe" to "Open source", "TeamNewPipe/NewPipe" to "Open source",
         "AntennaPod/AntennaPod" to "Open source", "Kotatsu/Kotatsu" to "Open source", "termux/termux-app" to "Open source",
         "aurora-oss/AuroraStore" to "Open source", "Droid-ify/Droid-ify" to "Open source", "Neo-Store/Neo-Store" to "Open source",
+        "libre-tube/LibreTube" to "Open source", "mihonapp/mihon" to "Open source", "JunkFood02/Seal" to "Open source", "zhanghai/MaterialFiles" to "Open source",
+        "Fox2Code/FoxMagiskModuleManager" to "Root", "j-hc/zygisk-detach" to "Root", "PerformanC/ReVancedXposed" to "Mods", "inotia00/revanced-manager" to "Mods",
     ).distinctBy { it.first.lowercase() }
 
     private fun get(url: String): JsonElement? = http.newCall(Request.Builder().url(url).header("Accept", "application/vnd.github+json").build()).execute().use { r ->
@@ -116,7 +118,19 @@ val myApps: List<MyApp> get() = listOf(
             "• A mascot that dances while Claude works: in the notification, the island pill, the always-on screen and the chat header.\n" +
             "• One tap starts the bridge, and brings it back if Termux dies.\n" +
             "• Automatic topic-based chat titles, model/effort/permission pickers, attachments."),
-        emptyList(), "xUmutKx/ClaudeChat", 0xFFD97757),
+        listOf("claudechat-chat.png", "claudechat-settings.png", "claudechat-black.png"), "xUmutKx/ClaudeChat", 0xFFD97757),
+    MyApp("LrcLrc", t("Şarkı sözlerinde ara, satıra atla", "Search your lyrics, jump to the line"),
+        t("Müzik klasöründeki .lrc söz dosyalarında anında arama yapar ve eşleşen satırdan Poweramp'te (ya da seçtiğin müzik uygulamasında) çalar.\n\n" +
+            "• Düz yazı art arda kelimeleri, virgül tüm sözlerde ayrı ayrı arar.\n• Kitaplıkta kapağa dokununca şarkının sözleri açılır.\n• Varsayılan dil İngilizce, ayarlardan Türkçe seçilir.",
+            "Instantly searches the .lrc lyric files in your music folder and plays from the matching line in Poweramp (or the music app you pick).\n\n" +
+            "• Plain text searches words in a row, a comma matches each part anywhere in the lyrics.\n• Tap a cover in your library to read the song's lyrics.\n• English by default, Türkçe in Settings."),
+        listOf("lrclrc-library.png", "lrclrc-search.png"), "xUmutKx/LrcLrc", 0xFF7C5CFF),
+    MyApp("Palette", t("Tek bir renk paletiyle tüm uygulama ikonlarını yeniden temala", "Re-theme every app icon from one colour palette"),
+        t("Bir fotoğraf, duvar kağıdın ya da hazır bir palet seç; Palette ana ekrandaki tüm uygulamalar için uyumlu ikonlar üretir. Her şey cihazda çalışır.\n\n" +
+            "• Renkler Oklab uzayında eşlenir: logolar çamurlaşmaz, kontrast korunur.\n• Orijinal, stilize ve karo ikon modları; okunmayacak ikonlar otomatik karoya döner.\n• Tasker / Rutinler / adb ile otomasyon, geri alma ve paylaşma.",
+            "Pick a photo, your wallpaper or a preset and Palette builds matching icons for every app on your home screen. Everything runs on-device.\n\n" +
+            "• Colours are mapped in Oklab, so logos don't turn to mud and contrast holds.\n• Original, styled and tile icon modes; icons that would be illegible fall back to tiles on their own.\n• Automation through Tasker / Routines / adb, undo and sharing."),
+        listOf("palette-lavender.jpg", "palette-sakura.jpg"), "xUmutKx/Palette", 0xFF9B7FD6),
     MyApp("Mega Games", t("Tek uygulamada onlarca mini oyun", "Dozens of mini games in one app"),
         t("Tek bir uygulamada, internet izni olmadan çalışan 3B ve 2B mini oyun koleksiyonu. Oyunlar uygulamanın içinde (WebView + yerel three.js) çalışır; kayıtlar cihazda kalır.\n\n" +
             "• İzin yok, reklam yok: yalnızca titreşim.\n• Geri tuşu oyundan merkeze, merkezden çıkışa götürür.\n• Fruit Ninja, Subway Surfers, Flappy Bird benzeri ve rahatlama oyunları dahil.",

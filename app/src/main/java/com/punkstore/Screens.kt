@@ -120,7 +120,10 @@ fun MaterialHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Uni
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding()) {
         item {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Punk Store", style = MaterialTheme.typography.headlineMedium, fontFamily = LogoFont, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Column(Modifier.weight(1f)) { // PUNK on the first line, STORE under it
+                    Text("PUNK", fontFamily = LogoFont, fontWeight = FontWeight.Black, fontSize = 30.sp, lineHeight = 30.sp)
+                    Text("STORE", fontFamily = LogoFont, fontWeight = FontWeight.Black, fontSize = 15.sp, lineHeight = 15.sp, letterSpacing = 7.sp, color = MaterialTheme.colorScheme.primary)
+                }
                 IconButton(onSearch) { Icon(Icons.Filled.Search, t("Ara", "Search")) }
                 if (s.loading) CircularProgressIndicator(Modifier.size(24.dp)) else IconButton({ s.refresh() }) { Icon(Icons.Filled.Refresh, t("Yenile", "Refresh")) }
             }
@@ -332,6 +335,14 @@ fun SettingsScreen(s: Store, onGoogleLogin: () -> Unit = {}, onAbout: () -> Unit
         TextButton({ s.changeDispenser(disp); s.loadPlay() }) { Text(t("Kaydet ve yeniden bağlan", "Save and reconnect")) }
         SectionTitle(t("Kaynaklar", "Sources"), s, Modifier.padding(0.dp))
         Text("F-Droid (FOSS): ${s.fdroid.size} " + t("uygulama", "apps"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(t("Steam oyunlarını göster", "Show Steam games"), Modifier.weight(1f))
+            Switch(s.showSteam, { s.changeShowSteam(it) })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("SteamDB (" + t("Steam profil verisi", "Steam profile data") + ")", Modifier.weight(1f))
+            Switch(s.steamDbOn, { s.setSteamDb(it) })
+        }
         if (s.googleEmail != null) {
             Text(t("Google hesabı: ", "Google account: ") + s.googleEmail, color = Steam.greenA)
             OutlinedButton({ s.googleLogout() }) { Text(t("Çıkış yap (anonime dön)", "Sign out (back to anonymous)")) }

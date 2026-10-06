@@ -126,7 +126,7 @@ fun SteamTopBar2(s: Store, onNav: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().background(Steam.topBrush).gloss().statusBarsPadding().padding(bottom = 4.dp).drawBehind { Steam.topAccent?.let { drawRect(it, androidx.compose.ui.geometry.Offset(0f, size.height - 3.dp.toPx()), androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) } }) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.card).border(1.dp, Steam.edgeLo, RoundedCornerShape(Steam.corner.dp)).clickable { onNav("search") }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                PunkLogo(15f, frame = false, color = Steam.text, accent = Steam.dim); Spacer(Modifier.weight(1f))
+                PunkLogo(18f, frame = false, color = Steam.text, accent = Steam.dim); Spacer(Modifier.weight(1f))
                 Icon(Icons.Filled.Search, null, tint = Steam.dim)
             }
             Spacer(Modifier.width(4.dp))
@@ -147,9 +147,6 @@ fun SteamTopBar2(s: Store, onNav: (String) -> Unit) {
             @Composable fun Nav(label: String, key: String, badge: Int = 0, color: Color = Steam.text) = BadgedBox({ if (badge > 0) Badge { Text("$badge") } }, Modifier.padding(end = 6.dp)) { Text(label, Modifier.clickable { onNav(key) }.padding(horizontal = 8.dp, vertical = 8.dp), color = color, fontSize = 15.sp, letterSpacing = 1.sp, maxLines = 1, softWrap = false) }
             Nav(t("İSTEK LİSTESİ", "WISHLIST"), "wishlist", s.wishlist.size)
             Nav(t("İNDİRMELER", "DOWNLOADS"), "downloads", s.busy.size)
-            Nav(t("KEŞFET", "DISCOVER"), "discover")
-            Nav(t("SEVİYE ", "LEVEL ") + s.level, "achievements", 0, Steam.btn)
-            Nav("🔥 ${s.streak}", "stats", 0, Steam.link)
         }
     }
 }

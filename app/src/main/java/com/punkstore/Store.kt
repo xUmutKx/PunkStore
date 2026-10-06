@@ -75,7 +75,7 @@ class Store(app: Application) : AndroidViewModel(app) {
         AppItem(p, f[0], f.getOrElse(2) { "" }, icon = f.getOrNull(1)?.ifEmpty { null }, banner = f.getOrElse(3) { "" }, source = f.getOrElse(4) { "PLAY" }, price = f.getOrElse(5) { "" }, discount = f.getOrElse(6) { "0" }.toIntOrNull() ?: 0, web = f.getOrElse(7) { "" })
     }
     /** Kütüphane: elle eklenenler + katalogdaki kurulu uygulamalar + katalog dışı kurulu uygulamalar (Cihaz). */
-    val libApps: List<AppItem> get() = (libAdded.mapNotNull { resolve(it) } + apps.filter { isInstalled(it) && it.pkg !in libAdded } + localApps + steamOwned).distinctBy { it.pkg }
+    val libApps: List<AppItem> get() = (libAdded.mapNotNull { resolve(it) } + apps.filter { isInstalled(it) && it.pkg !in libAdded } + localApps + (if (showSteam) steamOwned else emptyList())).distinctBy { it.pkg }
 
     fun isWished(a: AppItem) = a.pkg in wishlist
     fun toggleWish(a: AppItem) {
@@ -172,13 +172,13 @@ class Store(app: Application) : AndroidViewModel(app) {
         deckVersion
         val rnd = java.util.Random(seed + seen.size)
         val pool: List<AppItem> = when (mode) {
-            "steam" -> steamMap.values.toList()
+            "steam" -> steamPool
             "android" -> apps
             "fdroid" -> apps.filter { it.source == "FDROID" }
             "play" -> apps.filter { it.source == "PLAY" }
-            "games" -> apps.filter { a -> a.categories.any { it.contains("Game", true) } } + steamMap.values
-            "" -> apps + steamMap.values
-            else -> (apps + steamMap.values).filter { mode in it.categories }
+            "games" -> apps.filter { a -> a.categories.any { it.contains("Game", true) } } + steamPool
+            "" -> apps + steamPool
+            else -> (apps + steamPool).filter { mode in it.categories }
         }
         return pool.filtered(filters.copy(sort = SortBy.RELEVANCE)).asSequence()
             .filter { it.pkg !in seen && it.pkg !in wishlist && !isInstalled(it) && (it.cover != null || it.icon != null) }
@@ -239,10 +239,43 @@ class Store(app: Application) : AndroidViewModel(app) {
     var tabOrder by mutableStateOf((prefs.getString("tabOrder", "") ?: "").split(',').mapNotNull { n -> Tab.values().firstOrNull { it.name == n } }); private set
     fun orderedTabs(): List<Tab> { val all = Tab.values().filter { it.bottom }; return (tabOrder.filter { it in all } + all.filter { it !in tabOrder }) }
     fun moveTab(t: Tab, d: Int) { val l = orderedTabs().toMutableList(); val i = l.indexOf(t); val j = i + d; if (i < 0 || j !in l.indices) return; l.removeAt(i); l.add(j, t); tabOrder = l; prefs.edit().putString("tabOrder", l.joinToString(",") { it.name }).apply() }
-    var steamLists by mutableStateOf<Map<String, List<AppItem>>>(emptyMap()); private set
+    /** Steam games in the store (lists, search, discover, library): off by default, the app works as a plain app store. */
+    var showSteam by mutableStateOf(prefs.getBoolean("showSteam", false)); private set
+    fun changeShowSteam(v: Boolean) { showSteam = v; prefs.edit().putBoolean("showSteam", v).apply(); if (v) loadSteamStore() }
+    // ---- SteamDB account calculator (default source for the Steam profile data; can be switched off) ----
+    var steamDbOn by mutableStateOf(prefs.getBoolean("steamDbOn", true)); private set
+    var steamDbId by mutableStateOf(prefs.getString("steamDbId", null) ?: SteamDbWeb.DEFAULT_ID); private set
+    var steamDbCc by mutableStateOf(prefs.getString("steamDbCc", null) ?: SteamDbWeb.DEFAULT_CC); private set
+    var steamDb by mutableStateOf<SteamDbWeb.Data?>(prefs.getString("steamDbCache", null)?.let { runCatching { json.decodeFromString(SteamDbWeb.Data.serializer(), it) }.getOrNull() }); private set
+    var steamDbBusy by mutableStateOf(false); private set
+    var steamDbErr by mutableStateOf<String?>(null); private set
+    fun setSteamDb(on: Boolean, id: String = steamDbId, cc: String = steamDbCc) {
+        steamDbOn = on; steamDbId = id.trim().ifBlank { SteamDbWeb.DEFAULT_ID }; steamDbCc = cc.trim().lowercase().ifBlank { SteamDbWeb.DEFAULT_CC }
+        prefs.edit().putBoolean("steamDbOn", on).putString("steamDbId", steamDbId).putString("steamDbCc", steamDbCc).apply()
+    }
+    fun loadSteamDb() {
+        if (!steamDbOn || steamDbBusy) return
+        steamDbBusy = true; steamDbErr = null
+        viewModelScope.launch {
+            runCatching { SteamDbWeb.load(steamDbId, steamDbCc) }
+                .onSuccess { acceptSteamDb(it) }
+                .onFailure { steamDbErr = it.message ?: it.javaClass.simpleName }
+            steamDbBusy = false
+        }
+    }
+    /** Data from SteamDB (from the background read or from the visible human-check page). */
+    fun acceptSteamDb(d: SteamDbWeb.Data) {
+        steamDb = d; steamDbErr = null
+        prefs.edit().putString("steamDbCache", json.encodeToString(SteamDbWeb.Data.serializer(), d)).apply()
+        // the SteamDB list stands in for the library when the Steam profile does not give one
+        if (steamProfile?.games.isNullOrEmpty() && d.games.isNotEmpty()) saveOwned(d.games.map { SteamLink.Game(it.appId, it.name, (it.hours * 60).toInt()) })
+    }
+    private val steamPool: List<AppItem> get() = if (showSteam) steamMap.values.toList() else emptyList()
+    private var steamListsRaw by mutableStateOf<Map<String, List<AppItem>>>(emptyMap())
+    val steamLists: Map<String, List<AppItem>> get() = if (showSteam) steamListsRaw else emptyMap()
     var steamErr by mutableStateOf<String?>(null); private set
-    fun loadSteamStore() { viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamLists = m; saveExtra(); steamErr = null }.onFailure { steamErr = it.message } } }
-    suspend fun searchSteamStore(q: String): List<AppItem> = runCatching { SteamStoreApi.search(q).onEach { steamMap.putIfAbsent(it.pkg, it) }.also { saveExtra() } }.getOrDefault(emptyList())
+    fun loadSteamStore() { if (!showSteam) return; viewModelScope.launch { runCatching { SteamStoreApi.featured() }.onSuccess { m -> m.values.flatten().forEach { steamMap[it.pkg] = it }; steamListsRaw = m; saveExtra(); steamErr = null }.onFailure { steamErr = it.message } } }
+    suspend fun searchSteamStore(q: String): List<AppItem> = if (!showSteam) emptyList() else runCatching { SteamStoreApi.search(q).onEach { steamMap.putIfAbsent(it.pkg, it) }.also { saveExtra() } }.getOrDefault(emptyList())
     val reviews = mutableStateMapOf<String, List<UserReview>>()
     fun loadReviews(a: AppItem, force: Boolean = false) { if ((a.pkg in reviews && !force) || a.source == "FDROID") return; reviewErr.remove(a.pkg); reviews.remove(a.pkg); viewModelScope.launch { runCatching { if (a.source == "STEAM") SteamStoreApi.reviews(a) else PlayRepo.reviews(getApplication(), a.pkg) }.onSuccess { reviews[a.pkg] = it }.onFailure { reviewErr[a.pkg] = it.message ?: it.javaClass.simpleName; reviews[a.pkg] = emptyList() } } }
     fun enrichSteam(a: AppItem) { if (a.review.isNotBlank() || a.description.isNotBlank()) return; viewModelScope.launch { runCatching { SteamStoreApi.details(a) }.onSuccess { d ->
