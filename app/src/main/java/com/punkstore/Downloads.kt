@@ -171,6 +171,8 @@ class DownloadQueue(private val s: Store) {
         }
 
         check(abiOk(out)) { noAbi() }
+        // GitHub sürümlerinde paket adı bilinmez: indirilen APK'dan okunup eşlenir (kurulu durumu için)
+        if (a.pkg.startsWith("gh:")) runCatching { ctx.packageManager.getPackageArchiveInfo(out.first().path, 0)?.packageName }.getOrNull()?.let { s.setGhReal(a.pkg, it) }
         upd(a.pkg) { it.copy(state = DlState.INSTALLING) }
         DownloadService.installing(ctx, a.pkg, a.name)
         val wait = InstallBus.expect(a.pkg)

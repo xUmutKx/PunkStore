@@ -123,7 +123,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     fun clearCache() { getApplication<Application>().cacheDir.resolve("apk").deleteRecursively() }
     fun uninstall(ctx: Context, pkg: String) {
         viewModelScope.launch {
-            runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Installer.uninstall(ctx, pkg) } }.onFailure { error = it.message }
+            runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Installer.uninstall(ctx, ghReal(pkg)) } }.onFailure { error = it.message }
             refreshInstalled()
         }
     }
@@ -221,10 +221,16 @@ class Store(app: Application) : AndroidViewModel(app) {
     val ghMap = mutableStateMapOf<String, AppItem>()
     var ghLoading by mutableStateOf(false); private set
     var ghExtra by mutableStateOf((prefs.getString("ghExtra", "") ?: "").split(',').filter { it.isNotBlank() }); private set
+    private var ghSrcLoaded = false
     fun loadGithub() {
-        if (ghLoading || ghMap.isNotEmpty()) return
+        if (ghLoading || ghMap.values.any { it.categories.firstOrNull() == "by UmutK" }) return
         ghLoading = true
-        viewModelScope.launch { runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }; runCatching { GitHubRepo.curatedItems(ghExtra).forEach { ghMap[it.pkg] = it } }; ghLoading = false }
+        viewModelScope.launch { runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }; ghLoading = false }
+    }
+    fun loadGithubSources() {
+        if (ghLoading || ghSrcLoaded) return
+        ghLoading = true; ghSrcLoaded = true
+        viewModelScope.launch { runCatching { GitHubRepo.curatedItems(ghExtra).forEach { ghMap[it.pkg] = it } }; ghLoading = false }
     }
     fun addGithub(full: String) {
         ghExtra = (ghExtra + full).distinct(); prefs.edit().putString("ghExtra", ghExtra.joinToString(",")).apply()
@@ -534,7 +540,9 @@ class Store(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun isInstalled(a: AppItem) = installed.containsKey(a.pkg)
+    fun ghReal(pkg: String): String = if (pkg.startsWith("gh:")) prefs.getString("ghreal_$pkg", null) ?: pkg else pkg
+    fun setGhReal(pkg: String, real: String) { prefs.edit().putString("ghreal_$pkg", real).apply() }
+    fun isInstalled(a: AppItem) = installed.containsKey(a.pkg) || installed.containsKey(ghReal(a.pkg))
     fun hasUpdate(a: AppItem) = a.pkg !in ignored && installed[a.pkg]?.let { it < a.versionCode } == true
     fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg] ?: ghMap[pkg]
     /** Bilinen her kaynaktan (katalog, kayıtlı, cihaz) */
@@ -557,7 +565,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     }
 
     // Keşif listeleri
-    fun open(ctx: Context, pkg: String) { noteLaunch(pkg); Installer.open(ctx, pkg) }
+    fun open(ctx: Context, pkg: String) { noteLaunch(pkg); Installer.open(ctx, ghReal(pkg)) }
     /** İstek listesine / kurulu uygulamalara göre kategori önerisi */
     val recommended: List<AppItem> get() {
         val favCats = (wishApps + apps.filter { isInstalled(it) }).flatMap { it.categories }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(3).map { it.key }

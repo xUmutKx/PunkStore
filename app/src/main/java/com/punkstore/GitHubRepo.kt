@@ -87,27 +87,36 @@ object GitHubRepo {
 @Composable
 fun UmutKScreen(s: Store, onOpen: (String) -> Unit) {
     LaunchedEffect(Unit) { s.loadGithub() }
-    var adding by remember { mutableStateOf("") }
     val mine = s.ghMap.values.filter { it.categories.firstOrNull() == "by UmutK" }.sortedByDescending { it.updated }
-    val others = s.ghMap.values.filter { it.categories.firstOrNull() != "by UmutK" }.groupBy { it.categories.firstOrNull().orEmpty() }
     Column(Modifier.fillMaxSize().background(Steam.bg)) {
         Text("by UmutK", Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().padding(14.dp), color = androidx.compose.ui.graphics.Color.White, fontSize = 20.sp, letterSpacing = 2.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
             item { SteamSection(t("Uygulamalarım (GitHub)", "My apps (GitHub)")) }
             if (mine.isEmpty()) item { Text(if (s.ghLoading) t("Yükleniyor…", "Loading…") else t("Henüz herkese açık sürüm yok (özel depolar listelenmez).", "No public releases yet (private repos are not listed)."), Modifier.padding(16.dp), color = Steam.dim, fontSize = 14.sp) }
             items(mine, key = { it.pkg }) { GhRow(it, onOpen) }
-            others.forEach { (g, l) ->
-                item { SteamSection(when (g) { "Root" -> t("Root modülleri ve araçlar", "Root modules & tools"); "Mods" -> t("Modlar (ReVanced, Morphe…)", "Mods (ReVanced, Morphe…)"); "Open source" -> t("Açık kaynak", "Open source"); else -> g }) }
-                items(l.sortedBy { it.name.lowercase() }, key = { it.pkg }) { GhRow(it, onOpen) }
+        }
+    }
+}
+
+/** GitHub sources: other people's repos whose releases carry an Android APK (ReVanced Manager, Morphe, root tools...). */
+@Composable
+fun GithubSourcesList(s: Store, onOpen: (String) -> Unit) {
+    LaunchedEffect(Unit) { s.loadGithubSources() }
+    var adding by remember { mutableStateOf("") }
+    val others = s.ghMap.values.filter { it.categories.firstOrNull() != "by UmutK" }.groupBy { it.categories.firstOrNull().orEmpty() }
+    LazyColumn(Modifier.fillMaxSize().background(Steam.bg), contentPadding = PaddingValues(bottom = 40.dp)) {
+        if (others.isEmpty()) item { Text(if (s.ghLoading) t("Yükleniyor…", "Loading…") else t("Kaynak bulunamadı.", "Nothing found."), Modifier.padding(16.dp), color = Steam.dim) }
+        others.forEach { (g, l) ->
+            item { SteamSection(when (g) { "Root" -> t("Root araçları", "Root tools"); "Mods" -> t("Modlar (ReVanced, Morphe…)", "Mods (ReVanced, Morphe…)"); "Open source" -> t("Açık kaynak", "Open source"); else -> g }) }
+            items(l.sortedBy { it.name.lowercase() }, key = { it.pkg }) { GhRow(it, onOpen) }
+        }
+        item {
+            SteamSection(t("Kaynak ekle", "Add a source"))
+            Row(Modifier.padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.OutlinedTextField(adding, { adding = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("owner/repo") })
+                Text(t("Ekle", "Add"), Modifier.padding(start = 8.dp).clip(RoundedCornerShape(4.dp)).background(Steam.btn).clickable { if (Regex("[\\w.-]+/[\\w.-]+").matches(adding.trim())) { s.addGithub(adding.trim()); adding = "" } }.padding(horizontal = 16.dp, vertical = 14.dp), color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
             }
-            item {
-                SteamSection(t("Kaynak ekle", "Add a source"))
-                Row(Modifier.padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.OutlinedTextField(adding, { adding = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("owner/repo") })
-                    Text(t("Ekle", "Add"), Modifier.padding(start = 8.dp).clip(RoundedCornerShape(4.dp)).background(Steam.btn).clickable { if (Regex("[\\w.-]+/[\\w.-]+").matches(adding.trim())) { s.addGithub(adding.trim()); adding = "" } }.padding(horizontal = 16.dp, vertical = 14.dp), color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
-                }
-                if (s.ghExtra.isNotEmpty()) Text(t("Eklediklerin: ", "Yours: ") + s.ghExtra.joinToString(", "), Modifier.padding(16.dp, 0.dp), color = Steam.dim, fontSize = 12.sp)
-            }
+            if (s.ghExtra.isNotEmpty()) Text(t("Eklediklerin: ", "Yours: ") + s.ghExtra.joinToString(", "), Modifier.padding(16.dp, 0.dp), color = Steam.dim, fontSize = 12.sp)
         }
     }
 }

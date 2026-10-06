@@ -45,6 +45,7 @@ private fun Header(title: String, onBack: () -> Unit) {
 private class Feat(val key: String, val icon: ImageVector, val tr: String, val en: String, val dTr: String, val dEn: String)
 
 private val FEATS = listOf(
+    Feat("github", Icons.Filled.Code, "GitHub kaynakları", "GitHub sources", "Android APK içeren GitHub projeleri", "GitHub projects that ship an Android APK"),
     Feat("downloads", Icons.Filled.Download, "İndirmeler", "Downloads", "Süren indirmeler ve geçmiş", "Active downloads and history"),
     Feat("collections", Icons.Filled.Folder, "Koleksiyonlar", "Collections", "Uygulamalarını gruplara ayır", "Group your apps"),
     Feat("pinned", Icons.Filled.PushPin, "Favoriler", "Pinned", "Sabitlediğin uygulamalar", "Apps you pinned"),
@@ -141,6 +142,7 @@ fun FeatureScreen(s: Store, kind: String, onOpen: (String) -> Unit, onBack: () -
                 Text(t("Zevkin (Keşfet)", "Your taste (Discover)"), Modifier.padding(top = 18.dp, bottom = 6.dp), color = Steam.btn, letterSpacing = 1.sp)
                 Text(s.tasteTop.joinToString(" · ") { I18n.category(it) }.ifBlank { t("Henüz yok — Keşfet'te kaydır.", "None yet — swipe in Discover.") }, color = Steam.text)
             }
+            "github" -> GithubSourcesList(s, onOpen)
             "storage", "cleanup", "installed" -> InstalledList(s, kind, onOpen)
             "backup" -> {
                 var txt by remember { mutableStateOf("") }; var msg by remember { mutableStateOf("") }

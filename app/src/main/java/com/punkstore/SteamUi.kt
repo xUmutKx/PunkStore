@@ -155,7 +155,7 @@ fun SteamTopBar2(s: Store, onNav: (String) -> Unit) {
 }
 
 class QA(val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tr: String, val en: String)
-val QA_STORE = listOf(QA("daily", Icons.Filled.WbSunny, "Günün uygulaması", "App of the day"), QA("random", Icons.Filled.Casino, "Rastgele", "Random"), QA("open", Icons.Filled.ContentPaste, "Paketle aç", "Open by package"))
+val QA_STORE = listOf(QA("daily", Icons.Filled.WbSunny, "Günün uygulaması", "App of the day"), QA("random", Icons.Filled.Casino, "Rastgele", "Random"), QA("open", Icons.Filled.ContentPaste, "Paketle aç", "Open by package"), QA("github", Icons.Filled.Code, "GitHub kaynakları", "GitHub sources"))
 val QA_LIBRARY = listOf(QA("collections", Icons.Filled.Folder, "Koleksiyonlar", "Collections"), QA("pinned", Icons.Filled.PushPin, "Favoriler", "Pinned"), QA("recent", Icons.Filled.History, "Son bakılanlar", "Recent"), QA("share", Icons.Filled.Share, "Paylaş", "Share"), QA("backup", Icons.Filled.Backup, "Yedek", "Backup"))
 val QA_UPDATES = listOf(QA("storage", Icons.Filled.Storage, "Depolama", "Storage"), QA("cleanup", Icons.Filled.CleaningServices, "Temizlik", "Cleanup"), QA("installed", Icons.Filled.Info, "Kurulu bilgisi", "Installed info"))
 

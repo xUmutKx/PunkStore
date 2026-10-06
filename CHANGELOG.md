@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.41
+- "by UmutK" now only lists my own apps. Other GitHub projects (ReVanced Manager, Morphe, root tools) moved to "GitHub sources" in the Store quick row.
+- GitHub apps now show as installed, and Open/Uninstall work, because the real package name is read from the downloaded APK.
+
 ## 0.40
 - New "by UmutK" tab: my GitHub releases, plus a curated list of GitHub-only apps (ReVanced Manager, Morphe, Magisk, KernelSU, LSPosed, APatch and more). You can add any owner/repo yourself.
 - Bottom tabs can be reordered in Settings.
