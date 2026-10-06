@@ -541,11 +541,15 @@ class Store(app: Application) : AndroidViewModel(app) {
     /** Google Play'de arama (F-Droid araması yerelde yapılır). */
     suspend fun searchPlay(q: String): List<AppItem> {
         val found = runCatching { PlayRepo.search(getApplication(), q) }.getOrElse { playError = "Google Play: " + (it.message ?: ""); emptyList() }
-        // Play aramasında adı tutan yoksa: bilinen/olası paket adlarını doğrudan sorgula
+        // Play aramasında adı tutan yoksa: Play web araması + bilinen/olası paket adları
         val hit = found.any { Rank.score(it, q) >= 400 }
         val extra: List<AppItem> = if (hit) emptyList() else kotlinx.coroutines.coroutineScope {
             val sc = this
-            Rank.guesses(q).map { g -> sc.async { runCatching { PlayRepo.detail(getApplication(), g) }.getOrNull() } }.mapNotNull { it.await() }
+            val web = runCatching { PlayRepo.webSearchPkgs(q) }.getOrDefault(emptyList())
+            val pk = (Rank.guesses(q) + web).distinct().filter { p -> found.none { it.pkg == p } }
+            val items = runCatching { PlayRepo.details(getApplication(), pk) }.getOrDefault(emptyList())
+            val order = pk.withIndex().associate { it.value to it.index }
+            (if (items.isNotEmpty()) items else pk.map { g -> sc.async { runCatching { PlayRepo.detail(getApplication(), g) }.getOrNull() } }.mapNotNull { it.await() }).sortedBy { order[it.pkg] ?: 99 }
         }
         return (extra + found).distinctBy { it.pkg }.also { addPlay(it) }
     }
@@ -608,7 +612,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     val recentlyUpdated get() = apps.sortedByDescending { it.updated }
     val categories get() = apps.flatMap { it.categories }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
     fun search(q: String) = q.trim().lowercase().let { s ->
-        if (s.isEmpty()) emptyList() else apps.filter { it.name.lowercase().contains(s) || it.pkg.contains(s) || it.summary.lowercase().contains(s) }
+        if (s.isEmpty()) emptyList() else (apps + localApps.filter { l -> apps.none { it.pkg == l.pkg } }).filter { it.name.lowercase().contains(s) || it.pkg.contains(s) || it.summary.lowercase().contains(s) }
             .sortedByDescending { it.name.lowercase().startsWith(s) }
     }
 }

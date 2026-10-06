@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.45
+- Search: if Google Play search misses an app (Clash Royale, for one), I now also run the Play web search and check well-known package names, so it shows up.
+- Search also looks at apps already installed on the phone that aren't in a catalog.
+
 ## 0.41
 - "by UmutK" now only lists my own apps. Other GitHub projects (ReVanced Manager, Morphe, root tools) moved to "GitHub sources" in the Store quick row.
 - GitHub apps now show as installed, and Open/Uninstall work, because the real package name is read from the downloaded APK.

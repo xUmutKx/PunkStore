@@ -37,7 +37,7 @@ object Rank {
         "reddit" to "com.reddit.frontpage", "twitch" to "tv.twitch.android.app", "firefox" to "org.mozilla.firefox", "vlc" to "org.videolan.vlc", "shazam" to "com.shazam.android",
         "linkedin" to "com.linkedin.android", "whatsapp business" to "com.whatsapp.w4b", "youtube music" to "com.google.android.apps.youtube.music", "drive" to "com.google.android.apps.docs",
         "google drive" to "com.google.android.apps.docs", "translate" to "com.google.android.apps.translate", "çeviri" to "com.google.android.apps.translate", "minecraft" to "com.mojang.minecraftpe",
-        "roblox" to "com.roblox.client", "pubg" to "com.tencent.ig", "among us" to "com.innersloth.spacemafia", "candy crush" to "com.king.candycrushsaga", "uber" to "com.ubercab", "bitwarden" to "com.x8bit.bitwarden",
+        "roblox" to "com.roblox.client", "pubg" to "com.tencent.ig", "among us" to "com.innersloth.spacemafia", "candy crush" to "com.king.candycrushsaga", "uber" to "com.ubercab", "clash royale" to "com.supercell.clashroyale", "clash of clans" to "com.supercell.clashofclans", "brawl stars" to "com.supercell.brawlstars", "hay day" to "com.supercell.hayday", "boom beach" to "com.supercell.boombeach", "squad busters" to "com.supercell.squad", "subway surfers" to "com.kiloo.subwaysurf", "genshin impact" to "com.miHoYo.GenshinImpact", "free fire" to "com.dts.freefireth", "call of duty mobile" to "com.activision.callofduty.shooter", "fortnite" to "com.epicgames.fortnite", "temple run" to "com.imangi.templerun", "coin master" to "com.moonactive.coinmaster", "clash mini" to "com.supercell.clashmini", "bitwarden" to "com.x8bit.bitwarden",
     )
 
     fun guesses(q: String): List<String> {

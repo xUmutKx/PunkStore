@@ -156,6 +156,14 @@ object PlayRepo {
         }.filter { it.text.isNotBlank() }
     }
 
+    /** Play web aramasından paket adları (oturumsuz; gplayapi araması bir uygulamayı vermezse yedek). */
+    suspend fun webSearchPkgs(q: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val url = "https://play.google.com/store/search?q=" + java.net.URLEncoder.encode(q, "UTF-8") + "&c=apps&hl=en&gl=US"
+        val req = okhttp3.Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36").build()
+        val body = http.newCall(req).execute().use { if (it.isSuccessful) it.body!!.string() else "" }
+        Regex("/store/apps/details\\?id=([A-Za-z0-9_.]+)").findAll(body).map { it.groupValues[1] }.distinct().take(10).toList()
+    }
+
     suspend fun detail(c: Context, pkg: String): AppItem? = details(c, listOf(pkg)).firstOrNull()
 
     /** İndirme bağlantılarını alır (base + split'ler + obb). */
