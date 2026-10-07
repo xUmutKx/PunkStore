@@ -32,6 +32,7 @@ enum class Design(val steam: Boolean) { STEAM(true), STEAM2013(true), STEAM2006(
 
 class Store(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("punk", Context.MODE_PRIVATE)
+    init { GitHubRepo.cache = prefs }
 
     // Ayarlar
     var design by mutableStateOf(runCatching { Design.valueOf(prefs.getString("design", "STEAM")!!) }.getOrDefault(Design.STEAM))
@@ -228,6 +229,16 @@ class Store(app: Application) : AndroidViewModel(app) {
         ghLoading = true
         viewModelScope.launch { runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }; ghLoading = false }
     }
+    /** Reload button: ask GitHub again for my apps and the sources. */
+    fun reloadGithub() {
+        if (ghLoading) return
+        ghLoading = true
+        viewModelScope.launch {
+            runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }
+            if (ghSrcLoaded) runCatching { GitHubRepo.curatedItems(ghExtra).forEach { ghMap[it.pkg] = it } }
+            ghLoading = false
+        }
+    }
     fun loadGithubSources() {
         if (ghLoading || ghSrcLoaded) return
         ghLoading = true; ghSrcLoaded = true
@@ -264,26 +275,36 @@ class Store(app: Application) : AndroidViewModel(app) {
             steamDbBusy = false
         }
     }
+    // names of Steam games, kept on the phone: the SteamDB page often gives a wrong title (a price, "Steam Deck Verified", hours), the store knows the real one
+    private val nameCache: MutableMap<Long, String> by lazy {
+        (prefs.getString("steamNameCache", "") ?: "").lineSequence().mapNotNull { l ->
+            val i = l.indexOf('='); if (i <= 0) null else l.substring(0, i).toLongOrNull()?.let { it to l.substring(i + 1) }
+        }.toMap().toMutableMap()
+    }
+    private fun saveNameCache() { prefs.edit().putString("steamNameCache", nameCache.entries.joinToString("\n") { "${it.key}=${it.value.replace('\n', ' ')}" }).apply() }
+    private fun withNames(d: SteamDbWeb.Data) = SteamDbWeb.Data(d.id, d.cc, d.value, d.level, d.played, d.xp,
+        d.games.map { SteamDbWeb.DbGame(it.appId, nameCache[it.appId] ?: it.name, it.hours, it.price, it.pct) }, d.at)
+
     /** Data from SteamDB (from the background read or from the visible human-check page). */
-    fun acceptSteamDb(d: SteamDbWeb.Data) {
+    fun acceptSteamDb(d0: SteamDbWeb.Data) {
+        val d = withNames(d0)   // names we already looked up replace the scraped ones right away
         steamDb = d; steamDbErr = null
         prefs.edit().putString("steamDbCache", json.encodeToString(SteamDbWeb.Data.serializer(), d)).apply()
         // the SteamDB list stands in for the library when the Steam profile does not give one
         if (steamProfile?.games.isNullOrEmpty() && d.games.isNotEmpty()) saveOwned(d.games.map { SteamLink.Game(it.appId, it.name, (it.hours * 60).toInt()) })
         fixSteamDbNames(d)
     }
-    /** SteamDB's page sometimes yields a wrong or missing title; look those up in Steam's store API (a few at a time) and replace them. */
+    /** Looks up every game's real title in Steam's store (then SteamSpy), a few at a time, remembers them and replaces the scraped ones. */
     private fun fixSteamDbNames(d: SteamDbWeb.Data) {
-        val bad = d.games.filter { SteamDbWeb.badName(it.name) }.take(80)
-        if (bad.isEmpty()) return
+        val todo = d.games.filter { it.appId !in nameCache }.take(150)
+        if (todo.isEmpty()) return
         viewModelScope.launch {
-            val fixed = HashMap<Long, String>()
-            for (ch in bad.chunked(6)) {
-                ch.map { g -> async { g.appId to runCatching { SteamStoreApi.name(g.appId) }.getOrNull() } }.awaitAll()
-                    .forEach { (id, n) -> if (!n.isNullOrBlank()) fixed[id] = n }
+            for (ch in todo.chunked(5)) {
+                ch.map { g -> async { g.appId to SteamStoreApi.nameAny(g.appId) } }.awaitAll().forEach { (id, n) -> if (!n.isNullOrBlank()) nameCache[id] = n }
+                saveNameCache()
+                kotlinx.coroutines.delay(350)   // the store allows about 200 requests in five minutes
             }
-            if (fixed.isEmpty()) return@launch
-            val nd = SteamDbWeb.Data(d.id, d.cc, d.value, d.level, d.played, d.xp, d.games.map { SteamDbWeb.DbGame(it.appId, fixed[it.appId] ?: it.name, it.hours, it.price, it.pct) }, d.at)
+            val nd = withNames(steamDb ?: d)
             steamDb = nd
             prefs.edit().putString("steamDbCache", json.encodeToString(SteamDbWeb.Data.serializer(), nd)).apply()
             if (steamProfile?.games.isNullOrEmpty()) saveOwned(nd.games.map { SteamLink.Game(it.appId, it.name, (it.hours * 60).toInt()) })

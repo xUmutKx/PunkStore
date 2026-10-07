@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50
+- "by UmutK" now lists every app of mine that has a release, and each one opens like any other app: install, update, open. Apps without a release still show their README card.
+- Names are right: Claude Chat, Punk Store, Mega Games, instead of the repository names.
+- Some apps were missing because GitHub only lets an app ask 60 times an hour and the old code used two requests per repo. It is now one request per repo, and the last good copy is kept, so nothing disappears when the limit is hit.
+- A reload button in the top bar.
+
 ## 0.49
 - The bottom bar follows the Steam mobile app: labelled tabs, and tag, news, shield, bell and menu icons.
 - A Menu page, and the profile opens from your avatar.

@@ -58,6 +58,10 @@ object SteamStoreApi {
         get("https://store.steampowered.com/api/appdetails?appids=$id&filters=basic&l=english")["$id"]?.jsonObject?.get("data")?.jsonObject?.get("name")?.jsonPrimitive?.content
     }
 
+    /** The name from the store, or from SteamSpy when the store has none (delisted, region-locked). */
+    suspend fun nameAny(id: Long): String? = runCatching { name(id) }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: withContext(Dispatchers.IO) { runCatching { get("https://steamspy.com/api.php?request=appdetails&appid=$id")["name"]?.jsonPrimitive?.contentOrNull }.getOrNull() }?.takeIf { it.isNotBlank() }
+
     /** Açıklama, geliştirici, türler, ekran görüntüleri ve gerçek kullanıcı değerlendirme özeti. */
     suspend fun details(a: AppItem): AppItem = withContext(Dispatchers.IO) {
         val id = a.pkg.removePrefix("steam:")

@@ -41,6 +41,19 @@ object GitHubRepo {
         "Fox2Code/FoxMagiskModuleManager" to "Root", "j-hc/zygisk-detach" to "Root", "PerformanC/ReVancedXposed" to "Mods", "inotia00/revanced-manager" to "Mods",
     ).distinctBy { it.first.lowercase() }
 
+    /** Last good copy of every repo, so GitHub's 60 anonymous requests an hour cannot make apps disappear. Set by the Store. */
+    var cache: android.content.SharedPreferences? = null
+    private val json = Json { ignoreUnknownKeys = true }
+    private fun cached(full: String): AppItem? = runCatching { cache?.getString("gh_$full", null)?.let { json.decodeFromString(AppItem.serializer(), it) } }.getOrNull()
+    private fun remember(full: String, a: AppItem) { runCatching { cache?.edit()?.putString("gh_$full", json.encodeToString(AppItem.serializer(), a))?.apply() } }
+    private fun cachedMine(): List<AppItem> = (cache?.all?.keys.orEmpty()).filter { it.startsWith("gh_") }.mapNotNull { cached(it.removePrefix("gh_")) }.filter { it.categories.firstOrNull() == "by UmutK" }
+
+    /** "ClaudeChat" -> "Claude Chat", "Uno-Groovy" -> "Uno Groovy"; my own apps keep the names I gave them. */
+    fun displayName(full: String, repoName: String): String {
+        myApps.firstOrNull { it.repo.equals(full, true) }?.let { return it.name }
+        return repoName.replace('-', ' ').replace('_', ' ').replace(Regex("(?<=[a-z])(?=[A-Z])"), " ").trim().ifBlank { full.substringAfter('/') }
+    }
+
     private fun get(url: String): JsonElement? = http.newCall(Request.Builder().url(url).header("Accept", "application/vnd.github+json").build()).execute().use { r ->
         if (!r.isSuccessful) null else Json.parseToJsonElement(r.body!!.string())
     }
@@ -57,12 +70,13 @@ object GitHubRepo {
             ?: apks.firstOrNull()
     }
 
-    suspend fun item(full: String, group: String): AppItem? = withContext(Dispatchers.IO) {
+    suspend fun item(full: String, group: String, repoJson: JsonElement? = null): AppItem? = withContext(Dispatchers.IO) {
         runCatching {
-            val rel = get("https://api.github.com/repos/$full/releases/latest")?.jsonObject ?: return@runCatching null
+            // one request per repo (the repo info comes from the list when we have it); no answer (limit, offline) = the last good copy
+            val rel = get("https://api.github.com/repos/$full/releases/latest")?.jsonObject ?: return@runCatching cached(full)
             val apk = pickApk(rel["assets"]?.jsonArray ?: JsonArray(emptyList())) ?: return@runCatching null
-            val repo = get("https://api.github.com/repos/$full")
-            val name = repo.s("name").ifBlank { full.substringAfter('/') }
+            val repo = repoJson ?: get("https://api.github.com/repos/$full")
+            val name = displayName(full, repo.s("name").ifBlank { full.substringAfter('/') })
             AppItem(
                 pkg = "gh:$full", name = name, summary = repo.s("description"),
                 description = repo.s("description") + "\n\n" + rel.s("body").take(1500),
@@ -72,14 +86,19 @@ object GitHubRepo {
                 apkUrl = apk.s("browser_download_url"), apkSize = apk["size"]?.jsonPrimitive?.longOrNull ?: 0L,
                 versionName = rel.s("tag_name"), web = "https://github.com/$full", source = "GITHUB", developer = full.substringBefore('/'),
                 installs = (apk["download_count"]?.jsonPrimitive?.longOrNull ?: 0L).let { if (it > 0) "$it downloads" else "" },
-            )
-        }.getOrNull()
+            ).also { remember(full, it) }
+        }.getOrElse { cached(full) }
     }
 
-    /** Public repos of [OWNER] that have an APK in their latest release. */
+    /** Every app repo of [OWNER] (not forks, not archived) that has an APK in its latest release; falls back to the saved copies when GitHub does not answer. */
     suspend fun mine(): List<AppItem> = coroutineScope {
-        val repos = withContext(Dispatchers.IO) { runCatching { get("https://api.github.com/users/$OWNER/repos?per_page=100&sort=pushed")?.jsonArray }.getOrNull() } ?: return@coroutineScope emptyList()
-        repos.map { it.jsonObject }.filter { it.s("fork") != "true" }.map { r -> async { item(r.s("full_name"), "by UmutK") } }.awaitAll().filterNotNull()
+        val repos = withContext(Dispatchers.IO) { runCatching { get("https://api.github.com/users/$OWNER/repos?per_page=100&sort=pushed")?.jsonArray }.getOrNull() }
+            ?: return@coroutineScope cachedMine()
+        val fresh = repos.map { it.jsonObject }
+            .filter { it.s("fork") != "true" && it.s("archived") != "true" && it.s("name") != OWNER }
+            .map { r -> async { item(r.s("full_name"), UMUTK_CAT, r) } }.awaitAll().filterNotNull()
+        // anything that did not come back this time (rate limit) stays from the saved copies
+        fresh + cachedMine().filter { c -> fresh.none { it.pkg == c.pkg } }
     }
 
     suspend fun curatedItems(extra: List<String>): List<AppItem> = coroutineScope {
@@ -131,6 +150,18 @@ val myApps: List<MyApp> get() = listOf(
             "Pick a photo, your wallpaper or a preset and Palette builds matching icons for every app on your home screen. Everything runs on-device.\n\n" +
             "• Colours are mapped in Oklab, so logos don't turn to mud and contrast holds.\n• Original, styled and tile icon modes; icons that would be illegible fall back to tiles on their own.\n• Automation through Tasker / Routines / adb, undo and sharing."),
         listOf("palette-lavender.jpg", "palette-sakura.jpg"), "xUmutKx/Palette", 0xFF9B7FD6),
+    MyApp("Pulse", t("Windows Görev Yöneticisi gibi Android görev yöneticisi", "A task manager for Android that looks like Windows Task Manager"),
+        t("Telefonum için Windows Görev Yöneticisi: ısı haritalı süreç listesi, canlı grafikli Performans sekmesi, başlangıç uygulamaları, hizmetler; ayrıca sensörler, kamera, pil sağlığı ve ısı bilgileri.\n\n" +
+            "• Windows 11 (Mica), 10, 7, XP ve 95 görünümleri, koyu temalar siyaha yakın.\n• Yüzen izleyici, bildirim, sıcaklık/pil/bellek uyarıları.\n• Hiçbir veri paylaşılmaz.",
+            "Windows Task Manager for my phone: a process list with heat-map cells, a Performance tab with live graphs, startup apps and services, plus sensors, camera, battery health and thermals.\n\n" +
+            "• Windows 11 (with Mica), 10, 7, XP and 95 looks, dark themes close to AMOLED black.\n• A floating monitor, a notification, alerts for temperature, battery and memory.\n• No data is shared."),
+        emptyList(), "xUmutKx/Pulse", 0xFF0078D7),
+    MyApp("BlackOut", t("Uygulamaların gri yüzeylerini saf AMOLED siyaha çevir", "Turn the grey surfaces of your apps into pure AMOLED black"),
+        t("Android'in koyu modu siyah değil koyu gridir. BlackOut bunu root, erişilebilirlik katmanı ya da LSPosed modülüyle gerçek siyaha çevirir.\n\n" +
+            "• Dark pages: beyaz sayfa seçtiğin renge, yazı beyaza (Samsung Notes PDF'leri için ideal).\n• Üst katman: root gerekmez, yazı ve görsellere dokunmaz.\n• LSPosed modülü: renk adlarını gizleyen uygulamalarda bile çalışır.\n• İnternet izni yok, hiçbir veri paylaşılmaz.",
+            "Android's dark mode is dark grey, not black. BlackOut turns it into real black with root, an accessibility layer or an LSPosed module.\n\n" +
+            "• Dark pages: white pages to the colour you pick, text to white (great for Samsung Notes PDFs).\n• Top layer: no root, leaves text and images alone.\n• LSPosed module: works even in apps that hide their colour names.\n• No internet permission, no data is shared."),
+        emptyList(), "xUmutKx/BlackOut", 0xFF3F51B5),
     MyApp("Mega Games", t("Tek uygulamada onlarca mini oyun", "Dozens of mini games in one app"),
         t("Tek bir uygulamada, internet izni olmadan çalışan 3B ve 2B mini oyun koleksiyonu. Oyunlar uygulamanın içinde (WebView + yerel three.js) çalışır; kayıtlar cihazda kalır.\n\n" +
             "• İzin yok, reklam yok: yalnızca titreşim.\n• Geri tuşu oyundan merkeze, merkezden çıkışa götürür.\n• Fruit Ninja, Subway Surfers, Flappy Bird benzeri ve rahatlama oyunları dahil.",
@@ -173,6 +204,7 @@ fun UmutKScreen(s: Store, onOpen: (String) -> Unit, onBack: () -> Unit) {
         Row(Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton({ if (sel != null) sel = null else onBack() }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, t("Geri", "Back"), tint = androidx.compose.ui.graphics.Color.White) }
             Text(sel?.name ?: UMUTK_CAT, Modifier.weight(1f), color = androidx.compose.ui.graphics.Color.White, fontSize = 20.sp, letterSpacing = 2.sp)
+            if (sel == null) androidx.compose.material3.IconButton({ s.reloadGithub() }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Refresh, t("Yenile", "Reload"), tint = androidx.compose.ui.graphics.Color.White) }
         }
         val cur = sel
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
@@ -198,17 +230,20 @@ fun UmutKScreen(s: Store, onOpen: (String) -> Unit, onBack: () -> Unit) {
                         color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
                 }
             } else {
-                item { SteamSection(t("Uygulamalarım", "My apps")) }
+                item { SteamSection(t("Uygulamalarım", "My apps") + if (s.ghLoading) "  ·  " + t("yükleniyor…", "loading…") else "") }
                 items(myApps, key = { it.name }) { a ->
-                    Row(Modifier.fillMaxWidth().clickable { sel = a }.padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // an app with a release opens like any other app (install, update, open); without one, its README card
+                    val gh = s.ghMap.values.firstOrNull { it.pkg.removePrefix("gh:").equals(a.repo, true) }
+                    Row(Modifier.fillMaxWidth().clickable { if (gh != null) onOpen(gh.pkg) else sel = a }.padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         MyIcon(a, 52)
                         Column(Modifier.padding(start = 12.dp).weight(1f)) {
                             Text(a.name, color = androidx.compose.ui.graphics.Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             Text(a.tagline, color = Steam.dim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
+                        Text(gh?.versionName ?: t("sürüm yok", "no release"), Modifier.padding(start = 8.dp), color = if (gh != null) Steam.link else Steam.dim, fontSize = 12.sp, maxLines = 1)
                     }
                 }
-                if (mine.isNotEmpty()) item { SteamSection(t("GitHub sürümleri", "GitHub releases")) }
+                if (mine.isNotEmpty()) item { SteamSection(t("Diğer uygulamalarım", "More of my apps")) }
                 items(mine, key = { it.pkg }) { GhRow(it, onOpen) }
             }
         }
