@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
 }
 
 enum class Tab(private val tr: String, private val en: String, val bottom: Boolean = true) {
-    STORE("Mağaza", "Store"), DISCOVER("Keşfet", "Discover"), SEARCH("Ara", "Search", false), LIBRARY("Kütüphane", "Library"), UPDATES("İndirilenler", "Downloads"), PROFILE("Profil", "Profile");
+    STORE("Mağaza", "Store"), DISCOVER("Keşfet", "Discover"), SEARCH("Ara", "Search", false), LIBRARY("Kütüphane", "Library"), UPDATES("İndirilenler", "Downloads"), PROFILE("Profil", "Profile", false), MENU("Menü", "Menu");
     val label get() = t(tr, en)
 }
 
@@ -70,7 +70,7 @@ fun Root(s: Store) {
     fun nav(k: String) {
         category = null; wishlist = false; settings = false; overlay = null; openPkg = null
         when (k) {
-            "store" -> tab = Tab.STORE; "discover" -> tab = Tab.DISCOVER; "library" -> tab = Tab.LIBRARY; "updates" -> tab = Tab.UPDATES; "profile" -> tab = Tab.PROFILE; "umutk" -> { tab = Tab.STORE; category = UMUTK_CAT };"search" -> { if (tab != Tab.SEARCH) prevTab = tab; tab = Tab.SEARCH }
+            "store" -> tab = Tab.STORE; "discover" -> tab = Tab.DISCOVER; "library" -> tab = Tab.LIBRARY; "updates" -> tab = Tab.UPDATES; "profile" -> tab = Tab.PROFILE; "menu" -> tab = Tab.MENU; "downloads" -> tab = Tab.UPDATES; "umutk" -> { tab = Tab.STORE; category = UMUTK_CAT };"search" -> { if (tab != Tab.SEARCH) prevTab = tab; tab = Tab.SEARCH }
             "wishlist" -> wishlist = true; "settings" -> settings = true; "about" -> about = true; "achievements", "achv" -> achScreen = true; "steam" -> steamAcc = true
             "refresh" -> { s.refresh(); s.checkUpdates(true); s.loadSteamStore() }
             "daily" -> s.apps.filter { it.cover != null }.let { l -> if (l.isNotEmpty()) openPkg = l[((System.currentTimeMillis() / 86400000L) % l.size).toInt()].pkg }
@@ -110,7 +110,7 @@ fun Root(s: Store) {
         } else {
             Scaffold(
                 containerColor = if (s.design.steam && Steam.carbon) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
-                topBar = { if (s.design.steam && app != null) SteamThinTopBar(s, { openPkg = null }) { nav(it) } else if (s.design.steam && !wishlist && !settings && (if (tab == Tab.SEARCH) prevTab else tab) == Tab.STORE && category == null) SteamTopBar2(s) { nav(it) } },
+                topBar = { if (s.design.steam && tab == Tab.MENU && app == null && !wishlist && !settings && category == null) SteamMenuTopBar(s) { nav(it) } else if (s.design.steam && app != null) SteamThinTopBar(s, { openPkg = null }) { nav(it) } else if (s.design.steam && !wishlist && !settings && (if (tab == Tab.SEARCH) prevTab else tab) == Tab.STORE && category == null) SteamTopBar2(s) { nav(it) } },
                 bottomBar = { Column { DownloadDock(s) { openPkg = null; category = null; wishlist = false; settings = false; tab = Tab.UPDATES }; BottomBar(s.design, tab, s.updateCount, s.orderedTabs(), s.floatDock && s.design.steam) { if (it == Tab.SEARCH && tab != Tab.SEARCH) prevTab = tab; tab = it; openPkg = null; category = null; wishlist = false; settings = false } } },
             ) { pad ->
                 Box(Modifier.padding(pad).fillMaxSize()) {
@@ -136,6 +136,7 @@ fun Root(s: Store) {
                         n.tab == Tab.LIBRARY -> if (s.design.steam) SteamLibrary(s, { openPkg = it }, { nav(it) }) else LibraryScreen(s) { openPkg = it }
                         n.tab == Tab.UPDATES -> SteamUpdates(s, { openPkg = it }, { nav(it) })
                         n.tab == Tab.DISCOVER -> DiscoverScreen(s) { openPkg = it }
+                        n.tab == Tab.MENU -> SteamMenu(s) { nav(it) }
                         n.tab == Tab.PROFILE -> ProfileScreen(s, { openPkg = it }, { wishlist = true }, { settings = true }, { achScreen = true }, { steamAcc = true }, { nav(it) })
                     }
                     }

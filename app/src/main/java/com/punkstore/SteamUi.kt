@@ -122,32 +122,67 @@ fun SteamThinTopBar(s: Store, onBack: () -> Unit, onNav: (String) -> Unit) {
 
 @Composable
 fun SteamTopBar2(s: Store, onNav: (String) -> Unit) {
-    var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(Steam.topBrush).gloss().statusBarsPadding().padding(bottom = 4.dp).drawBehind { Steam.topAccent?.let { drawRect(it, androidx.compose.ui.geometry.Offset(0f, size.height - 3.dp.toPx()), androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) } }) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.card).border(1.dp, Steam.edgeLo, RoundedCornerShape(Steam.corner.dp)).clickable { onNav("search") }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                PunkLogo(18f, frame = false, color = Steam.text, accent = Steam.dim); Spacer(Modifier.weight(1f))
+            Row(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.card).border(1.dp, Steam.edgeLo, RoundedCornerShape(Steam.corner.dp)).clickable { onNav("search") }.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("PUNK STORE", fontFamily = LogoFont, color = Steam.text, fontSize = 20.sp, letterSpacing = 2.sp, maxLines = 1, softWrap = false); Spacer(Modifier.weight(1f))
                 Icon(Icons.Filled.Search, null, tint = Steam.dim)
             }
-            Spacer(Modifier.width(4.dp))
-            if (s.loading || s.checking) CircularProgressIndicator(Modifier.size(20.dp), color = Steam.blue, strokeWidth = 2.dp)
-            else IconButton({ onNav("refresh") }) { Icon(Icons.Filled.MoreVert, null, tint = W) }
+            Spacer(Modifier.width(10.dp))
+            if (s.loading || s.checking) { CircularProgressIndicator(Modifier.size(20.dp), color = Steam.blue, strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)) }
             Box(Modifier.clickable { onNav("profile") }) { Avatar(s, 44) }
         }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box {
-                Row(Modifier.clickable { menu = true }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Text(t("MENÜ", "MENU"), color = Steam.text, fontSize = 15.sp, letterSpacing = 1.sp); Icon(Icons.Filled.KeyboardArrowDown, null, tint = Steam.text) }
-                DropdownMenu(menu, { menu = false }) {
-                    listOf(Triple("steam", Icons.Filled.SportsEsports, t("Steam", "Steam")), Triple("settings", Icons.Filled.Settings, t("Ayarlar", "Settings")),
-                        Triple("about", Icons.Filled.Info, t("Bilgi", "About")), Triple("refresh", Icons.Filled.Refresh, t("Kataloğu yenile", "Refresh catalog"))).forEach { (k, ic, l) ->
-                        DropdownMenuItem({ Text(l) }, { menu = false; onNav(k) }, leadingIcon = { Icon(ic, null) })
-                    }
-                }
+    }
+}
+
+/** Menu page's top bar, as in Steam: centered title, profile picture on the right. */
+@Composable
+fun SteamMenuTopBar(s: Store, onNav: (String) -> Unit) {
+    Box(Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().height(58.dp).padding(horizontal = 14.dp)) {
+        Text(t("MENÜ", "MENU"), Modifier.align(Alignment.Center), color = W, fontSize = 22.sp, letterSpacing = 4.sp)
+        Box(Modifier.align(Alignment.CenterEnd).clickable { onNav("profile") }) { Avatar(s, 40) }
+    }
+}
+
+private class MenuItem(val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val badge: Int = 0)
+
+/** The "hamburger" page (Steam's menu): big icon rows, then smaller grey links. */
+@Composable
+fun SteamMenu(s: Store, onNav: (String) -> Unit) {
+    val main = listOf(
+        MenuItem("store", Icons.Filled.LocalOffer, t("Mağaza", "Store")),
+        MenuItem("discover", Icons.Filled.Newspaper, t("Keşfet", "Discover")),
+        MenuItem("library", Icons.Filled.GridView, t("Kütüphane", "Library")),
+        MenuItem("updates", Icons.Filled.Notifications, t("İndirilenler ve güncellemeler", "Downloads & updates"), s.updateCount),
+        MenuItem("wishlist", Icons.Filled.Favorite, t("İstek listesi", "Wishlist"), s.wishlist.size),
+        MenuItem("steam", Icons.Filled.SportsEsports, "Steam"),
+        MenuItem("achievements", Icons.Filled.EmojiEvents, t("Başarımlar", "Achievements")),
+        MenuItem("profile", Icons.Filled.Person, t("Profil", "Profile")),
+    )
+    val more = listOf(
+        MenuItem("daily", Icons.Filled.WbSunny, t("Günün uygulaması", "App of the day")),
+        MenuItem("random", Icons.Filled.Casino, t("Rastgele uygulama", "Random app")),
+        MenuItem("refresh", Icons.Filled.Refresh, t("Kataloğu yenile", "Refresh catalog")),
+        MenuItem("settings", Icons.Filled.Settings, t("Ayarlar", "Settings")),
+        MenuItem("about", Icons.Filled.Info, t("Bilgi", "About")),
+    )
+    LazyColumn(Modifier.fillMaxSize().background(Steam.panel)) {
+        items(main, key = { it.key }) { m ->
+            Row(Modifier.fillMaxWidth().background(Steam.row).clickable { onNav(m.key) }.padding(horizontal = 18.dp).height(66.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(m.icon, null, tint = W, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(18.dp))
+                Text(m.label, Modifier.weight(1f), color = W, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                if (m.badge > 0) Text("${m.badge}", Modifier.background(Color(0xFF5CB833), RoundedCornerShape(4.dp)).padding(horizontal = 12.dp, vertical = 8.dp), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
-            @Composable fun Nav(label: String, key: String, badge: Int = 0, color: Color = Steam.text) = BadgedBox({ if (badge > 0) Badge { Text("$badge") } }, Modifier.padding(end = 6.dp)) { Text(label, Modifier.clickable { onNav(key) }.padding(horizontal = 8.dp, vertical = 8.dp), color = color, fontSize = 15.sp, letterSpacing = 1.sp, maxLines = 1, softWrap = false) }
-            Nav(t("İSTEK LİSTESİ", "WISHLIST"), "wishlist", s.wishlist.size)
-            Nav(t("İNDİRMELER", "DOWNLOADS"), "downloads", s.busy.size)
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Steam.edgeLo))
         }
+        item { Spacer(Modifier.height(14.dp)) }
+        items(more, key = { it.key }) { m ->
+            Row(Modifier.fillMaxWidth().clickable { onNav(m.key) }.padding(horizontal = 18.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(m.icon, null, tint = Steam.dim, modifier = Modifier.size(22.dp)); Spacer(Modifier.width(18.dp))
+                Text(m.label, color = Steam.dim, fontSize = 18.sp)
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
     }
 }
 

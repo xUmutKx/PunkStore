@@ -14,7 +14,10 @@
     var id0 = rows[r].getAttribute('data-appid'); if (!id0 || seen[id0]) continue; seen[id0] = 1;
     var a0 = rows[r].querySelector('a[href*="/app/"]');
     var hm = rows[r].textContent.match(/([\d.,]+)\s*(?:hours|hrs|h)\b/i);
-    o.games.push({ id: id0, name: a0 ? a0.textContent.trim() : '', h: hm ? hm[1] : '', price: '', pct: '' });
+    var nm0 = ''; var al = rows[r].querySelectorAll('a[href*="/app/"]');
+    for (var z = 0; z < al.length && !nm0; z++) nm0 = al[z].textContent.trim();
+    if (!nm0) { var im0 = rows[r].querySelector('img'); nm0 = im0 && im0.alt ? im0.alt.trim() : ''; }
+    o.games.push({ id: id0, name: nm0, h: hm ? hm[1] : '', price: '', pct: '' });
   }
   // mobile layout: one card per game; climb from the link while the parent still holds a single game
   var links = document.querySelectorAll('a[href*="/app/"]');

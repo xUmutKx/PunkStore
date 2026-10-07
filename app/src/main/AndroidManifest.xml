@@ -15,7 +15,7 @@
         android:label="Punk Store"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Punk">
-        <activity android:name=".MainActivity" android:label="Punk&#10;Store" android:exported="true" android:windowSoftInputMode="adjustResize">
+        <activity android:name=".MainActivity" android:label="Punk Store" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

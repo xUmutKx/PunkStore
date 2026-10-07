@@ -2,6 +2,7 @@ package com.punkstore
 
 import coil.imageLoader
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.derivedStateOf
@@ -269,6 +270,24 @@ class Store(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("steamDbCache", json.encodeToString(SteamDbWeb.Data.serializer(), d)).apply()
         // the SteamDB list stands in for the library when the Steam profile does not give one
         if (steamProfile?.games.isNullOrEmpty() && d.games.isNotEmpty()) saveOwned(d.games.map { SteamLink.Game(it.appId, it.name, (it.hours * 60).toInt()) })
+        fixSteamDbNames(d)
+    }
+    /** SteamDB's page sometimes yields a wrong or missing title; look those up in Steam's store API (a few at a time) and replace them. */
+    private fun fixSteamDbNames(d: SteamDbWeb.Data) {
+        val bad = d.games.filter { SteamDbWeb.badName(it.name) }.take(80)
+        if (bad.isEmpty()) return
+        viewModelScope.launch {
+            val fixed = HashMap<Long, String>()
+            for (ch in bad.chunked(6)) {
+                ch.map { g -> async { g.appId to runCatching { SteamStoreApi.name(g.appId) }.getOrNull() } }.awaitAll()
+                    .forEach { (id, n) -> if (!n.isNullOrBlank()) fixed[id] = n }
+            }
+            if (fixed.isEmpty()) return@launch
+            val nd = SteamDbWeb.Data(d.id, d.cc, d.value, d.level, d.played, d.xp, d.games.map { SteamDbWeb.DbGame(it.appId, fixed[it.appId] ?: it.name, it.hours, it.price, it.pct) }, d.at)
+            steamDb = nd
+            prefs.edit().putString("steamDbCache", json.encodeToString(SteamDbWeb.Data.serializer(), nd)).apply()
+            if (steamProfile?.games.isNullOrEmpty()) saveOwned(nd.games.map { SteamLink.Game(it.appId, it.name, (it.hours * 60).toInt()) })
+        }
     }
     private val steamPool: List<AppItem> get() = if (showSteam) steamMap.values.toList() else emptyList()
     private var steamListsRaw by mutableStateOf<Map<String, List<AppItem>>>(emptyMap())

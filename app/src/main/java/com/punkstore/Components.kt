@@ -245,8 +245,8 @@ fun SectionTitle(text: String, s: Store, modifier: Modifier = Modifier) {
 
 @Composable
 fun BottomBar(design: Design, tab: Tab, updates: Int, order: List<Tab>, floating: Boolean = false, onTab: (Tab) -> Unit) {
-    val icons = mapOf(Tab.DISCOVER to (Icons.Filled.Explore to Icons.Outlined.Explore), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search), Tab.STORE to (Icons.Filled.Storefront to Icons.Outlined.Storefront), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search),
-        Tab.LIBRARY to (Icons.Filled.VideogameAsset to Icons.Outlined.VideogameAsset), Tab.UPDATES to (Icons.Filled.Download to Icons.Outlined.Download), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person))
+    val icons = mapOf(Tab.STORE to (Icons.Filled.LocalOffer to Icons.Outlined.LocalOffer), Tab.DISCOVER to (Icons.Filled.Newspaper to Icons.Outlined.Newspaper), Tab.SEARCH to (Icons.Filled.Search to Icons.Outlined.Search),
+        Tab.LIBRARY to (Icons.Filled.Shield to Icons.Outlined.Shield), Tab.UPDATES to (Icons.Filled.Notifications to Icons.Outlined.Notifications), Tab.PROFILE to (Icons.Filled.Person to Icons.Outlined.Person), Tab.MENU to (Icons.Filled.Menu to Icons.Outlined.Menu))
     if (design.steam) {
         // Steam'deki gibi çubuk biraz yukarıda durur; altta orantılı bir boşluk kalır
         val dockMod = if (floating) Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp).shadow(10.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(Steam.topBrush).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
@@ -256,10 +256,9 @@ fun BottomBar(design: Design, tab: Tab, updates: Int, order: List<Tab>, floating
             order.forEach { t ->
                 val sel = t == tab
                 Column(Modifier.weight(1f).fillMaxHeight().clickable { onTab(t) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Box(Modifier.width(34.dp).height(2.dp).background(if (sel) Steam.btn else Color.Transparent))
-                    Spacer(Modifier.height(4.dp))
-                    BadgedBox({ if (t == Tab.UPDATES && updates > 0) Badge { Text("$updates") } }) { Icon(icons[t]!!.first, t.label, tint = if (sel) Steam.btn else Color(0xFFDDDDDD), modifier = Modifier.size(24.dp)) }
-                    Text(t.label, color = if (sel) Steam.btn else Color(0xFFAAAAAA), fontSize = 9.sp, maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 1.dp))
+                    Box(Modifier.width(44.dp).height(2.dp).background(if (sel) Steam.btn else Color.Transparent))
+                    Spacer(Modifier.height(10.dp))
+                    BadgedBox({ if (t == Tab.UPDATES && updates > 0) Badge(containerColor = Color(0xFF5CB833)) { Text("$updates") } }) { Icon(icons[t]!!.first, t.label, tint = if (sel) Steam.btn else Color(0xFFDDDDDD), modifier = Modifier.size(27.dp)) }
                 }
             }
         }

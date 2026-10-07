@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49
+- The bottom bar follows the Steam mobile app: labelled tabs, and tag, news, shield, bell and menu icons.
+- A Menu page, and the profile opens from your avatar.
+- The top bar shows the PUNK STORE name on one line.
+
+## 0.48
+- Steam library from SteamDB: games whose name came out wrong or empty ("App 123", a number or an hours line) now get their real title from the Steam store.
+
 ## 0.45
 - Search: if Google Play search misses an app (Clash Royale, for one), I now also run the Play web search and check well-known package names, so it shows up.
 - Search also looks at apps already installed on the phone that aren't in a catalog.

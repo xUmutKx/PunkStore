@@ -51,6 +51,8 @@ object SteamDbWeb {
         return title to Data(steamId, cc, value, o["level"]?.jsonPrimitive?.content.orEmpty(), o["played"]?.jsonPrimitive?.content.orEmpty(),
             o["xp"]?.jsonPrimitive?.content.orEmpty(), games, System.currentTimeMillis())
     }
+    /** A name SteamDB's page gave that is no real title: empty, "App 123", or a number/hours/price line picked up by mistake. */
+    fun badName(n: String) = n.isBlank() || n.length < 2 || n.startsWith("App ") || Regex("^[\\d.,\\s]+(h|hrs|hours|%|TL|₺|\\$|€)?$", RegexOption.IGNORE_CASE).matches(n.trim())
     fun isCheckPage(title: String) = title.contains("moment", true) || title.contains("attention", true) || title.contains("cloudflare", true) || title.contains("verif", true) || title.contains("human", true)
 
     @SuppressLint("SetJavaScriptEnabled")
