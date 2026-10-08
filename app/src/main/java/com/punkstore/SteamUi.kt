@@ -304,6 +304,7 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
         }
         if (s.playTop.isNotEmpty()) { item { H("Google Play — " + t("en çok indirilenler", "Top free")) }; item { AppCarousel(s, s.hv(s.playTop), onOpen) } }
         if (s.playGames.isNotEmpty()) { item { H("Google Play — " + t("oyunlar", "Games")) }; item { AppCarousel(s, s.hv(s.playGames), onOpen) } }
+        if (s.playNew.isNotEmpty()) { item { H("Google Play — " + t("yeni ve güncellenenler", "New and updated")) }; item { AppCarousel(s, s.hv(s.playNew), onOpen) } }
         item { H(t("Yeni çıkanlar", "New releases")) }
         items(fresh.chunked(2)) { row ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -410,6 +411,14 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Un
     var more by remember(a.pkg) { mutableStateOf(false) }
     LaunchedEffect(a.pkg) { if (a.source == "STEAM") s.enrichSteam(a); s.loadReviews(a) }
     var colDialog by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    if (confirmRemove) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmRemove = false },
+        title = { Text(t("${a.name} silinsin mi?", "Delete ${a.name}?")) },
+        text = { Text(t("Uygulama ve verileri cihazdan kaldırılır.", "The app and its data will be removed from the device.")) },
+        confirmButton = { androidx.compose.material3.TextButton({ confirmRemove = false; s.uninstall(ctx, a.pkg) }) { Text(t("Sil", "Delete")) } },
+        dismissButton = { androidx.compose.material3.TextButton({ confirmRemove = false }) { Text(t("Vazgeç", "Cancel")) } },
+    )
     val gal = remember(a) { (a.screenshots + listOf(a.banner)).filter { it.isNotBlank() }.distinct() }
     val pager = rememberPagerState { gal.size.coerceAtLeast(1) }
     val scope = rememberCoroutineScope()
@@ -470,7 +479,7 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Un
             val acts = buildList {
                 add(Act(if (s.isWished(a)) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, t("İstek", "Wishlist")) { s.toggleWish(a) })
                 if (!s.isInstalled(a)) add(Act(Icons.Filled.VideogameAsset, if (a.pkg in s.libAdded) t("Kütüphane ✓", "Library ✓") else t("Kütüphane", "Library")) { s.toggleLibrary(a) })
-                if (s.isInstalled(a)) add(Act(Icons.Filled.Delete, t("Kaldır", "Remove")) { s.uninstall(ctx, a.pkg) })
+                if (s.isInstalled(a)) add(Act(Icons.Filled.Delete, t("Kaldır", "Remove")) { confirmRemove = true })
                 add(Act(if (a.pkg in s.pins) Icons.Filled.Star else Icons.Filled.StarBorder, if (a.pkg in s.pins) t("Favori ✓", "Pinned") else t("Favori", "Pin")) { s.togglePin(a) })
                 add(Act(Icons.Filled.Folder, t("Koleksiyon", "Collect")) { colDialog = true })
                 if (a.web.isNotBlank()) add(Act(Icons.Filled.OpenInBrowser, t("Web", "Web")) { web(a.web) })
@@ -483,8 +492,8 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Un
                     }
                 }
             }
-            @Composable fun Info(k: String, v: String, link: Boolean = false) = Row(Modifier.padding(vertical = 2.dp)) { Text(k, Modifier.width(110.dp), color = Steam.dim, fontSize = 15.sp); Text(v, color = if (link) Steam.link else Steam.text, fontSize = 15.sp, modifier = Modifier.weight(1f)) }
-            if (a.developer.isNotBlank() || a.license.isNotBlank()) Info(t("Geliştirici", "Developer"), a.developer.ifBlank { a.license }, true)
+            @Composable fun Info(k: String, v: String, link: Boolean = false, go: (() -> Unit)? = null) = Row(Modifier.padding(vertical = 2.dp)) { Text(k, Modifier.width(110.dp), color = Steam.dim, fontSize = 15.sp); Text(v, color = if (link) Steam.link else Steam.text, fontSize = 15.sp, modifier = Modifier.weight(1f).let { m -> if (go != null) m.clickable(onClick = go) else m }) }
+            if (a.developer.isNotBlank() || a.license.isNotBlank()) a.developer.ifBlank { a.license }.let { dev -> Info(t("Geliştirici", "Developer"), dev, true) { onCategory("dev:$dev") } }
             if (a.source == "STEAM" && a.license.isNotBlank()) Info(t("Yayıncı", "Publisher"), a.license, true)
             Info(t("Kaynak", "Source"), when (a.source) { "PLAY" -> "Google Play"; "STEAM" -> "Steam"; else -> "F-Droid" }, true)
             if (a.updated > 0) Info(t("Güncellendi", "Updated"), df.format(Date(a.updated)))

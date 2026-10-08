@@ -140,7 +140,7 @@ fun FeatureScreen(s: Store, kind: String, onOpen: (String) -> Unit, onBack: () -
                 val byCat = inst.flatMap { it.categories }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(8)
                 byCat.forEach { Bar(I18n.category(it.key), it.value, byCat.firstOrNull()?.value ?: 1) }
                 Text(t("Zevkin (Keşfet)", "Your taste (Discover)"), Modifier.padding(top = 18.dp, bottom = 6.dp), color = Steam.btn, letterSpacing = 1.sp)
-                Text(s.tasteTop.joinToString(" · ") { I18n.category(it) }.ifBlank { t("Henüz yok — Keşfet'te kaydır.", "None yet — swipe in Discover.") }, color = Steam.text)
+                Text(s.tasteTop.joinToString(" · ") { I18n.category(it) }.ifBlank { t("Henüz yok", "None yet") }, color = Steam.text)
             }
             "github" -> GithubSourcesList(s, onOpen)
             "storage", "cleanup", "installed" -> InstalledList(s, kind, onOpen)

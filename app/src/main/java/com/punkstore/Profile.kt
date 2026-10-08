@@ -86,7 +86,7 @@ fun WishlistScreen(s: Store, onOpen: (String) -> Unit, onBack: () -> Unit) {
         if (list.isEmpty()) Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Outlined.FavoriteBorder, null, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            Text(t("İstek listen boş. Bir uygulamanın sayfasındaki ♥ düğmesine dokun.", "Your wishlist is empty. Tap the ♥ on an app page."), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(t("İstek listen boş.", "Your wishlist is empty."), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         LazyColumn { items(list, key = { it.pkg }) { a ->
             Box { AppRow(s, a, onOpen); WishButton(s, a, Modifier.align(Alignment.TopEnd).padding(end = 6.dp)) }

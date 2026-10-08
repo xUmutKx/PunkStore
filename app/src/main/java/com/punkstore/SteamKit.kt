@@ -101,11 +101,19 @@ fun SteamStats(vararg items: Pair<String, String>, onClick: (Int) -> Unit = {}) 
     Row(Modifier.fillMaxWidth().background(Steam.topBrush).padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items.forEachIndexed { i, (v, l) ->
             Column(Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(Steam.panel).pressScale({ onClick(i) }).padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(v, color = W, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(l, color = Steam.dim, fontSize = 15.sp, maxLines = 1)
+                FitText(v, W, 22.sp, Modifier.padding(horizontal = 6.dp), FontWeight.Bold)
+                FitText(l, Steam.dim, 15.sp, Modifier.padding(horizontal = 6.dp))
             }
         }
     }
+}
+
+/** Tek satır metin: sığmazsa yazı küçülür (alt satıra düşüp kaybolmaz). */
+@Composable
+fun FitText(text: String, color: Color, fontSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier, weight: FontWeight? = null, minSize: Float = 9f) {
+    var size by remember(text, fontSize) { mutableStateOf(fontSize) }
+    Text(text, modifier, color = color, fontSize = size, fontWeight = weight, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+        onTextLayout = { if (it.didOverflowWidth && size.value > minSize) size = androidx.compose.ui.unit.TextUnit(size.value * 0.92f, androidx.compose.ui.unit.TextUnitType.Sp) })
 }
 
 /** Tam genişlik parlak mavi düğme ("Add friends" gibi) */

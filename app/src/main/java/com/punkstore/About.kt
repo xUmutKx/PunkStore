@@ -131,7 +131,7 @@ fun AboutScreen(s: Store, onBack: () -> Unit) {
                 Text(r, Modifier.alpha(a).offset(y = ((1 - a) * 24).dp).padding(vertical = 5.dp), fontFamily = LogoFont, fontSize = if (i == 0) 17.sp else 14.sp, color = if (i == 0) Color.White else Color(0xFFB7E3FF), textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(30.dp))
-            Text("Punk Store 0.14", color = Color(0xFF8BA6B8), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("Punk Store 0.53", color = Color(0xFF8BA6B8), fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(t("GPL-3.0 · F-Droid ve Aurora Store projelerinden esinlenmiştir.\nSteam tarzı arayüz bir hayranlık çalışmasıdır; Valve ile bağlantısı yoktur.", "GPL-3.0 · Inspired by the F-Droid and Aurora Store projects.\nThe Steam-style UI is a fan tribute and is not affiliated with Valve."), Modifier.padding(top = 6.dp), color = Color(0xFF8BA6B8), fontSize = 11.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(40.dp))
         }

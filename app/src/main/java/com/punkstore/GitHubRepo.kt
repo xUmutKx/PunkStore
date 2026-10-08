@@ -1,5 +1,6 @@
 package com.punkstore
 
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -253,9 +254,10 @@ fun UmutKScreen(s: Store, onOpen: (String) -> Unit, onBack: () -> Unit) {
 /** GitHub sources: other people's repos whose releases carry an Android APK (ReVanced Manager, Morphe, root tools...). */
 @Composable
 fun GithubSourcesList(s: Store, onOpen: (String) -> Unit) {
-    LaunchedEffect(Unit) { s.loadGithubSources() }
+    LaunchedEffect(Unit) { s.loadGithubSources(); s.loadAwesome() }
     var adding by remember { mutableStateOf("") }
     val others = s.ghMap.values.filter { it.categories.firstOrNull() != "by UmutK" }.groupBy { it.categories.firstOrNull().orEmpty() }
+        .toList().sortedBy { (g, _) -> if (g.startsWith("Awesome") || g.startsWith("Open-source Android")) 1 else 0 }
     LazyColumn(Modifier.fillMaxSize().background(Steam.bg), contentPadding = PaddingValues(bottom = 40.dp)) {
         if (others.isEmpty()) item { Text(if (s.ghLoading) t("Yükleniyor…", "Loading…") else t("Kaynak bulunamadı.", "Nothing found."), Modifier.padding(16.dp), color = Steam.dim) }
         others.forEach { (g, l) ->

@@ -22,6 +22,8 @@ It's a fan project I build for fun. It has nothing to do with Valve. Licensed un
 
 **App pages.** Screenshots, user reviews from Play and Steam, and a privacy report (ads, trackers, with a link to Exodus). Steam games also show supported platforms, system requirements, SteamDB info and estimated sales.
 
+**Awesome lists and other repos.** Curated GitHub lists (for example awesome-android and awesome-root) show up as their own sources, and other GitHub repos can be added to the store.
+
 **Small stuff.** Wishlist, collections, pinned apps, a Tinder-style Discover screen, levels and achievements, update notifications, backup and restore.
 
 ## Screenshots

@@ -8,6 +8,8 @@ import com.aurora.gplayapi.helpers.AppDetailsHelper
 import com.aurora.gplayapi.helpers.AuthHelper
 import com.aurora.gplayapi.helpers.PurchaseHelper
 import com.aurora.gplayapi.helpers.SearchHelper
+import com.aurora.gplayapi.helpers.StreamHelper
+import com.aurora.gplayapi.helpers.contracts.StreamContract
 import com.aurora.gplayapi.helpers.TopChartsHelper
 import com.aurora.gplayapi.helpers.contracts.TopChartsContract
 import kotlinx.coroutines.Dispatchers
@@ -123,6 +125,20 @@ object PlayRepo {
     suspend fun chart(c: Context, games: Boolean, chart: TopChartsContract.Chart = TopChartsContract.Chart.TOP_SELLING_FREE): List<AppItem> = withAuth(c) { au ->
         val type = if (games) TopChartsContract.Type.GAME else TopChartsContract.Type.APPLICATION
         TopChartsHelper(au).using(client).getCluster(type.value, chart.value).clusterAppList.map(::toItem)
+    }
+
+    /** New and updated apps (or games): the clusters of Play's home and early-access streams that are about what is fresh. */
+    suspend fun fresh(c: Context, games: Boolean): List<AppItem> = withAuth(c) { au ->
+        val cat = if (games) StreamContract.Category.GAME else StreamContract.Category.APPLICATION
+        val helper = StreamHelper(au).using(client)
+        val isFresh = Regex("new|updat|fresh|trending|early|latest|just|yeni|güncel", RegexOption.IGNORE_CASE)
+        val out = ArrayList<AppItem>()
+        for (type in listOf(StreamContract.Type.HOME, StreamContract.Type.EARLY_ACCESS)) runCatching {
+            helper.fetch(type, cat).streamClusters.values
+                .filter { type == StreamContract.Type.EARLY_ACCESS || isFresh.containsMatchIn(it.clusterTitle) }
+                .forEach { cl -> cl.clusterAppList.forEach { out.add(toItem(it)) } }
+        }
+        out.distinctBy { it.pkg }.take(60)
     }
 
     /** Tek paket ya da birkaç paketin ayrıntıları (güncelleme denetimi için). */

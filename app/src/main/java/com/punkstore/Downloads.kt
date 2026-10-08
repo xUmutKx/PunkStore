@@ -202,8 +202,11 @@ class DownloadQueue(private val s: Store) {
         check(l.isNotEmpty()) { t("İndirilebilir dosya yok (ücretli ya da bölgeye kapalı olabilir)", "Nothing to download (may be paid or region-locked)") }
         l.map { DlFile(it.url, it.name, it.size, it.sha256) }
     } else {
-        check(a.apkUrl.isNotBlank()) { t("İndirme adresi yok", "No download URL") }
-        listOf(DlFile(a.apkUrl, "base", a.apkSize, a.apkSha256))
+        // an entry from an awesome list only names a GitHub repo: its latest release is looked up now (one request), not for every entry up front
+        var item = a
+        if (item.apkUrl.isBlank() && item.pkg.startsWith("gh:")) item = GitHubRepo.item(item.pkg.removePrefix("gh:"), item.categories.firstOrNull().orEmpty()) ?: item
+        check(item.apkUrl.isNotBlank()) { t("Bu depoda APK içeren bir sürüm yok", "This repository has no release with an APK") }
+        listOf(DlFile(item.apkUrl, "base", item.apkSize, item.apkSha256))
     }
 
     /** Kalıcılık: yarım işlerin paket adları */

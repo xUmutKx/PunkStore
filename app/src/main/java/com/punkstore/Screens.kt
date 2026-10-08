@@ -94,6 +94,7 @@ fun SteamHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit) 
         if (s.recommended.isNotEmpty()) { item { SectionTitle(t("Senin için önerilenler", "Recommended for you"), s) }; item { AppCarousel(s, s.recommended, onOpen) } }
         if (s.playTop.isNotEmpty()) { item { SectionTitle("Google Play — " + t("en çok indirilenler", "Top free"), s) }; item { AppCarousel(s, s.playTop, onOpen) } }
         if (s.playGames.isNotEmpty()) { item { SectionTitle("Google Play — " + t("oyunlar", "Games"), s) }; item { AppCarousel(s, s.playGames, onOpen) } }
+        if (s.playNew.isNotEmpty()) { item { SectionTitle("Google Play — " + t("yeni ve güncellenenler", "New and updated"), s) }; item { AppCarousel(s, s.playNew, onOpen) } }
         item { SectionTitle(t("Yeni eklenenler", "New releases"), s) }
         item {
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -132,6 +133,7 @@ fun MaterialHome(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Uni
         item { CategoryChips(s, onCategory) }
         if (s.playTop.isNotEmpty()) { item { SectionTitle("Google Play — " + t("en çok indirilenler", "Top free"), s) }; item { AppCarousel(s, s.playTop, onOpen) } }
         if (s.playGames.isNotEmpty()) { item { SectionTitle("Google Play — " + t("oyunlar", "Games"), s) }; item { AppCarousel(s, s.playGames, onOpen) } }
+        if (s.playNew.isNotEmpty()) { item { SectionTitle("Google Play — " + t("yeni ve güncellenenler", "New and updated"), s) }; item { AppCarousel(s, s.playNew, onOpen) } }
         item { SectionTitle(t("Yeni eklenenler", "New releases"), s) }
         item {
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -170,12 +172,16 @@ fun CategoryScreen(s: Store, cat: String, onOpen: (String) -> Unit, onBack: () -
     if (cat == UMUTK_CAT) { UmutKScreen(s, onOpen, onBack); return }
     var open by remember { mutableStateOf(false) }
     if (open) FilterSheet(s) { open = false }
-    val list = remember(s.apps, cat, s.filters) { s.filt(s.apps.filter { cat == "*" || cat in it.categories }.sortedByDescending { it.updated }) }
+    val dev = cat.removePrefix("dev:").takeIf { cat.startsWith("dev:") }
+    val list = remember(s.apps, cat, s.filters, s.ghMap.size, s.steamMap.size) {
+        if (dev != null) (s.apps + s.ghMap.values + s.steamMap.values).filter { it.developer.ifBlank { it.license }.equals(dev, true) }.distinctBy { it.pkg }.sortedByDescending { it.updated }
+        else s.filt(s.apps.filter { cat == "*" || cat in it.categories }.sortedByDescending { it.updated })
+    }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(Modifier.statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Geri", "Back")) }
-                Text("${if (cat == "*") t("Tümü", "All") else I18n.category(cat)} (${list.size})", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                Text("${if (dev != null) dev else if (cat == "*") t("Tümü", "All") else I18n.category(cat)} (${list.size})", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 FilterButton(s) { open = true }
             }
         }
@@ -359,7 +365,7 @@ fun SettingsScreen(s: Store, onGoogleLogin: () -> Unit = {}, onAbout: () -> Unit
         Spacer(Modifier.height(16.dp))
         Button(onAbout, Modifier.fillMaxWidth()) { Text(t("Bilgi / Hakkında", "Info / About"), fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = 20.sp) }
         Spacer(Modifier.height(48.dp))
-        Text(t("Punk Store 0.14 — GPL-3.0. F-Droid ve Aurora Store projelerinden esinlenmiştir.", "Punk Store 0.14 — GPL-3.0. Inspired by the F-Droid and Aurora Store projects."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(t("Punk Store 0.53 — GPL-3.0. F-Droid ve Aurora Store projelerinden esinlenmiştir.", "Punk Store 0.53 — GPL-3.0. Inspired by the F-Droid and Aurora Store projects."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

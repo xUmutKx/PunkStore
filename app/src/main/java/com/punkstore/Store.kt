@@ -493,10 +493,19 @@ class Store(app: Application) : AndroidViewModel(app) {
     private var playMap by mutableStateOf<Map<String, AppItem>>(emptyMap())
     var playTop by mutableStateOf<List<AppItem>>(emptyList()); private set
     var playGames by mutableStateOf<List<AppItem>>(emptyList()); private set
+    /** What Google Play shows as new and updated (apps and games), next to the top charts. */
+    var playNew by mutableStateOf<List<AppItem>>(emptyList()); private set
+    /** The other F-Droid style repositories (IzzyOnDroid, Guardian Project, microG...): their apps next to F-Droid's. */
+    var more by mutableStateOf<List<AppItem>>(emptyList()); private set
     var playLoading by mutableStateOf(false); private set
     var playError by mutableStateOf<String?>(null); private set
     /** Tüm uygulamalar: F-Droid + Play (aynı paket varsa F-Droid önde). */
-    val apps: List<AppItem> by derivedStateOf { fdroid + playMap.values.filter { p -> fdroid.none { it.pkg == p.pkg } } }
+    val apps: List<AppItem> by derivedStateOf {
+        // F-Droid first, then the other repositories, then Google Play; a package that is in several shows once
+        val seen = HashSet<String>(fdroid.size + more.size + playMap.size)
+        fdroid.forEach { seen.add(it.pkg) }
+        fdroid + more.filter { seen.add(it.pkg) } + playMap.values.filter { seen.add(it.pkg) }
+    }
     var loading by mutableStateOf(false); private set
     var progress by mutableStateOf(0f); private set
     var error by mutableStateOf<String?>(null); private set
@@ -513,18 +522,49 @@ class Store(app: Application) : AndroidViewModel(app) {
         PlayRepo.customDispenser = dispenser
         Steam.pal = palFor(design); Steam.material = !design.steam
         I18n.pref = runCatching { LangPref.valueOf(prefs.getString("lang", "EN")!!) }.getOrDefault(LangPref.EN)
-        FdroidRepo.cached(app)?.let { fdroid = it }
+        // the big catalogue cache is read off the main thread so the first screen shows at once
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { FdroidRepo.cached(app) }?.let { fdroid = it }
+            if (fdroid.isEmpty() || FdroidRepo.cacheAgeMs(app) > 24 * 3600_000L) refresh()
+        }
         loadExtra()
+        loadMore()
         refreshInstalled()
-        if (fdroid.isEmpty() || FdroidRepo.cacheAgeMs(app) > 24 * 3600_000L) refresh()
         loadPlay()
         loadSteamStore()
         checkUpdates()
+        viewModelScope.launch { kotlinx.coroutines.delay(8000); loadAwesome() }   // the awesome lists, once the first screen is up
         dl.restore()
         SteamLink.cookie = prefs.getString("steamCookie", "") ?: ""; steamLoggedIn = SteamLink.loggedIn
         ownedGames = loadOwned()
         run { val today = System.currentTimeMillis() / 86400000L; val last = prefs.getLong("lastDay", 0L); var st = prefs.getInt("streak", 0)
             if (today != last) { st = if (today == last + 1) st + 1 else 1; prefs.edit().putLong("lastDay", today).putInt("streak", st).apply() }; streak = st }
+    }
+
+    /** The other repositories: the saved copy at once, a fresh download when it is older than a day; one failing repository does not stop the rest. */
+    private fun loadMore() {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val got = ArrayList<AppItem>()
+            for (r in EXTRA_REPOS) {
+                val saved = withContext(Dispatchers.IO) { FdroidRepo.cached(ctx, r) }
+                val fresh = if (saved == null || FdroidRepo.cacheAgeMs(ctx, r) > 24 * 3600_000L) runCatching { FdroidRepo.refresh(ctx, r) { } }.getOrNull() else null
+                got += fresh ?: saved ?: emptyList()
+                more = got.toList()
+            }
+        }
+    }
+
+    private var awesomeStarted = false
+    /** The awesome lists (root tools, Shizuku apps, FOSS apps...) join the GitHub entries; read in the background a few seconds after start. */
+    fun loadAwesome() {
+        if (awesomeStarted) return
+        awesomeStarted = true
+        viewModelScope.launch {
+            val items = runCatching { AwesomeRepo.all(getApplication()) }.getOrDefault(emptyList())
+            // curated entries and my own apps (real release info) win over a bare list entry
+            ghMap.putAll(items.filter { it.pkg !in ghMap }.associateBy { it.pkg })
+        }
     }
 
     fun refresh() {
@@ -583,6 +623,7 @@ class Store(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val top = PlayRepo.chart(ctx, false); playTop = top; addPlay(top)
                 val g = PlayRepo.chart(ctx, true); playGames = g; addPlay(g)
+                runCatching { val n = (PlayRepo.fresh(ctx, false) + PlayRepo.fresh(ctx, true)).distinctBy { it.pkg }; if (n.isNotEmpty()) { playNew = n; addPlay(n) } }
                 // daha fazla uygulama: diğer listeler (çok satan ücretli, trend, en çok kazanan)
                 for (games in listOf(false, true)) for (ch in listOf(com.aurora.gplayapi.helpers.contracts.TopChartsContract.Chart.TOP_GROSSING, com.aurora.gplayapi.helpers.contracts.TopChartsContract.Chart.MOVERS_SHAKERS, com.aurora.gplayapi.helpers.contracts.TopChartsContract.Chart.TOP_SELLING_PAID))
                     runCatching { addPlay(PlayRepo.chart(ctx, games, ch)) }
@@ -667,7 +708,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     val recentlyUpdated get() = apps.sortedByDescending { it.updated }
     val categories get() = apps.flatMap { it.categories }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
     fun search(q: String) = q.trim().lowercase().let { s ->
-        if (s.isEmpty()) emptyList() else (apps + localApps.filter { l -> apps.none { it.pkg == l.pkg } }).filter { it.name.lowercase().contains(s) || it.pkg.contains(s) || it.summary.lowercase().contains(s) }
+        if (s.isEmpty()) emptyList() else run { val known = apps.mapTo(HashSet()) { it.pkg }; apps + ghMap.values.filter { it.pkg !in known } + localApps.filter { it.pkg !in known } }.filter { it.name.lowercase().contains(s) || it.pkg.contains(s) || it.summary.lowercase().contains(s) }
             .sortedByDescending { it.name.lowercase().startsWith(s) }
     }
 }
