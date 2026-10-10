@@ -47,7 +47,7 @@ fun GoogleLoginScreen(onToken: (email: String, token: String) -> Unit, onBack: (
                         if (tok != null && !done) { done = true; readMail(view, cookies, tok, 0) }
                     }
                 }
-                loadUrl("https://accounts.google.com/EmbeddedSetup/identifier?flowName=EmbeddedSetupAndroid")
+                loadUrl("https://accounts.google.com/EmbeddedSetup?flowName=EmbeddedSetupAndroid")   // the old /EmbeddedSetup/identifier path now answers 404; this one redirects to the live sign-in page
             }
         }, modifier = Modifier.fillMaxSize())
     }

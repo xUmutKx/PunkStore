@@ -134,9 +134,9 @@ fun Root(s: Store) {
                                             else MaterialHome(s, { openPkg = it }, { category = it }) { nav("search") }
                         n.materialSearch -> SearchScreen(s) { openPkg = it }
                         n.tab == Tab.LIBRARY -> if (s.design.steam) SteamLibrary(s, { openPkg = it }, { nav(it) }) else LibraryScreen(s) { openPkg = it }
-                        n.tab == Tab.UPDATES -> SteamUpdates(s, { openPkg = it }, { nav(it) })
+                        n.tab == Tab.UPDATES -> if (s.design.steam) SteamUpdates(s, { openPkg = it }, { nav(it) }) else MaterialUpdates(s) { openPkg = it }
                         n.tab == Tab.DISCOVER -> DiscoverScreen(s) { openPkg = it }
-                        n.tab == Tab.MENU -> SteamMenu(s) { nav(it) }
+                        n.tab == Tab.MENU -> if (s.design.steam) SteamMenu(s) { nav(it) } else MaterialMenu(s) { nav(it) }
                         n.tab == Tab.PROFILE -> ProfileScreen(s, { openPkg = it }, { wishlist = true }, { settings = true }, { achScreen = true }, { steamAcc = true }, { nav(it) })
                     }
                     }

@@ -53,8 +53,7 @@ fun SplashOverlay(s: Store, onDone: () -> Unit) {
                         val idx = col * 9 + r
                         val catalog = covers.getOrNull(idx % maxOf(covers.size, 1))
                         val bm: ImageBitmap? = null
-                        val hue = ((col * 9 + r) * 37 % 360).toFloat()
-                        Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color.hsv(hue, .5f, .55f), Color.hsv((hue + 40) % 360, .6f, .25f))))) {
+                        Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color(0xFF1D3F66), Color(0xFF0B1A33))))) {
                             bm?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
                             catalog?.let { coil.compose.AsyncImage(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
                         }
@@ -66,7 +65,7 @@ fun SplashOverlay(s: Store, onDone: () -> Unit) {
         Box(Modifier.align(Alignment.Center).size(260.dp).scale(.3f + boom.value * 3f).alpha(1f - boom.value).background(Color(0x66FFFFFF), CircleShape))
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(150.dp).scale(logo.value).alpha(logo.value.coerceIn(0f, 1f)).background(Brush.verticalGradient(listOf(Color(0xFF2F86C6), Color(0xFF1B3E7A))), CircleShape).border(3.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
-                PunkEmblem(124, Modifier, true, 5)
+                PunkEmblem(124, Modifier, true, 5, hole = Color.White)
             }
             Spacer(Modifier.height(8.dp))
             PunkLogo(52f, Modifier.scale(logo.value).alpha(logo.value.coerceIn(0f, 1f)), align = Alignment.CenterHorizontally)

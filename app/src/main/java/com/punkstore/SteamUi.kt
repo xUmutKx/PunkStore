@@ -144,6 +144,20 @@ fun SteamMenuTopBar(s: Store, onNav: (String) -> Unit) {
     }
 }
 
+/** Steam pages that live on the web: Point Shop, Community, Market, Wallet and Play tournaments open in the browser. */
+private val STEAM_WEB = mapOf(
+    "points" to "https://store.steampowered.com/points/shop",
+    "community" to "https://steamcommunity.com/",
+    "market" to "https://steamcommunity.com/market/",
+    "wallet" to "https://store.steampowered.com/account/",
+    "tournaments" to "https://store.steampowered.com/",
+    "workshop" to "https://steamcommunity.com/workshop/",
+)
+fun openSteamWeb(ctx: android.content.Context, key: String) {
+    val url = STEAM_WEB[key] ?: return
+    runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
 private class MenuItem(val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val badge: Int = 0)
 
 /** The "hamburger" page (Steam's menu): big icon rows, then smaller grey links. */
@@ -163,6 +177,11 @@ fun SteamMenu(s: Store, onNav: (String) -> Unit) {
         MenuItem("daily", Icons.Filled.WbSunny, t("Günün uygulaması", "App of the day")),
         MenuItem("random", Icons.Filled.Casino, t("Rastgele uygulama", "Random app")),
         MenuItem("refresh", Icons.Filled.Refresh, t("Kataloğu yenile", "Refresh catalog")),
+        MenuItem("points", Icons.Filled.Stars, t("Puan dükkanı", "Point Shop")),
+        MenuItem("community", Icons.Filled.Groups, t("Topluluk", "Community")),
+        MenuItem("market", Icons.Filled.Storefront, t("Pazar", "Market")),
+        MenuItem("workshop", Icons.Filled.Build, t("Atölye", "Workshop")),
+        MenuItem("tournaments", Icons.Filled.EmojiEvents, t("Play turnuvaları", "Play tournaments")),
         MenuItem("settings", Icons.Filled.Settings, t("Ayarlar", "Settings")),
         MenuItem("about", Icons.Filled.Info, t("Bilgi", "About")),
     )
@@ -177,7 +196,8 @@ fun SteamMenu(s: Store, onNav: (String) -> Unit) {
         }
         item { Spacer(Modifier.height(14.dp)) }
         items(more, key = { it.key }) { m ->
-            Row(Modifier.fillMaxWidth().clickable { onNav(m.key) }.padding(horizontal = 18.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+            val ctx = LocalContext.current
+            Row(Modifier.fillMaxWidth().clickable { if (m.key in STEAM_WEB) openSteamWeb(ctx, m.key) else onNav(m.key) }.padding(horizontal = 18.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(m.icon, null, tint = Steam.dim, modifier = Modifier.size(22.dp)); Spacer(Modifier.width(18.dp))
                 Text(m.label, color = Steam.dim, fontSize = 18.sp)
             }
@@ -269,17 +289,13 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
             // Dokunulabilir afiş: parmağı takip eden ışık, basınca renk kayar, dişli döner; dokununca günün uygulaması
             var touch by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
             val down = touch != null
-            var hue by remember { mutableIntStateOf(0) }
-            val slimeCols = listOf(Color(0xFF3AA6FF), Color(0xFF5BE37A), Color(0xFFFF4FA3), Color(0xFFFFD23A), Color(0xFFA855F7))
-            val tintC by androidx.compose.animation.animateColorAsState(slimeCols[hue % slimeCols.size], androidx.compose.animation.core.tween(350), label = "ht")
             val sc by androidx.compose.animation.core.animateFloatAsState(if (down) 1.012f else 1f, androidx.compose.animation.core.spring(.28f, 350f), label = "hs")
             val sy by androidx.compose.animation.core.animateFloatAsState(if (down) .975f else 1f, androidx.compose.animation.core.spring(.28f, 350f), label = "hsy")
             val rot by androidx.compose.animation.core.animateFloatAsState(if (down) 70f else 0f, androidx.compose.animation.core.spring(.35f, 120f), label = "hr")
-            val warm by androidx.compose.animation.core.animateFloatAsState(if (down) 1f else 0f, androidx.compose.animation.core.tween(400), label = "hw")
             Box(Modifier.fillMaxWidth().height(150.dp).graphicsLayer { scaleX = sc; scaleY = sy }.background(Brush.linearGradient(Steam.hero))
                 .drawBehind { touch?.let { o -> drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = .22f), Color.Transparent), o, 260f), 260f, o) }
-                    drawRect(tintC.copy(alpha = .22f * warm)) }
-                .pointerInput(Unit) { detectTapGestures(onPress = { o -> touch = o; hue++; tryAwaitRelease(); touch = null }, onTap = {}) }
+                }
+                .pointerInput(Unit) { detectTapGestures(onPress = { o -> touch = o; tryAwaitRelease(); touch = null }, onTap = {}) }
                 .pointerInput(Unit) { awaitPointerEventScope { while (true) { val e = awaitPointerEvent(); if (touch != null) e.changes.firstOrNull()?.let { touch = it.position } } } }) {
                 Text("PUNK\nSTORE", Modifier.align(Alignment.CenterStart).padding(start = 20.dp), color = W, fontSize = 40.sp, lineHeight = 40.sp, fontWeight = FontWeight.Black)
                 Icon(Icons.Filled.Settings, null, Modifier.align(Alignment.CenterEnd).size(110.dp).padding(end = 10.dp).graphicsLayer { rotationZ = rot }, tint = Color(0x44FFFFFF))

@@ -365,7 +365,7 @@ fun SettingsScreen(s: Store, onGoogleLogin: () -> Unit = {}, onAbout: () -> Unit
         Spacer(Modifier.height(16.dp))
         Button(onAbout, Modifier.fillMaxWidth()) { Text(t("Bilgi / Hakkında", "Info / About"), fontFamily = androidx.compose.ui.text.font.FontFamily.Cursive, fontSize = 20.sp) }
         Spacer(Modifier.height(48.dp))
-        Text(t("Punk Store 0.53 — GPL-3.0. F-Droid ve Aurora Store projelerinden esinlenmiştir.", "Punk Store 0.53 — GPL-3.0. Inspired by the F-Droid and Aurora Store projects."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(t("Punk Store 0.54 — GPL-3.0. F-Droid ve Aurora Store projelerinden esinlenmiştir.", "Punk Store 0.53 — GPL-3.0. Inspired by the F-Droid and Aurora Store projects."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -408,6 +408,11 @@ fun DetailScreen(s: Store, a: AppItem, onBack: () -> Unit) {
                 if (!s.isInstalled(a)) OutlinedButton({ s.toggleWish(a) }, Modifier) { Text(if (s.isWished(a)) t("♥ İstek listesinde", "♥ On wishlist") else t("İstek listesine ekle", "Add to wishlist")) }
                 OutlinedButton({ ctx.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, "${a.name} — https://play.google.com/store/apps/details?id=${a.pkg}"), null)) }, Modifier) { Text(t("Paylaş", "Share")) }
                 if (s.isInstalled(a)) OutlinedButton({ s.uninstall(ctx, a.pkg) }, Modifier) { Text(t("Kaldır", "Uninstall")) }
+            }
+            // the store keeps this app's updates off (background updates and the update list skip it)
+            if (s.isInstalled(a)) Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(t("Otomatik güncellemeleri kapat", "Disable auto updates"), Modifier.weight(1f))
+                Switch(a.pkg in s.ignored, { s.toggleIgnore(a) })
             }
             if (s.launches[a.pkg] != null) Text(t("Açılış: ${s.launches[a.pkg]} kez", "Launched ${s.launches[a.pkg]} times"), Modifier.padding(top = 6.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (a.screenshots.isNotEmpty()) {
