@@ -47,6 +47,8 @@ object GitHubRepo {
     private val json = Json { ignoreUnknownKeys = true }
     private fun cached(full: String): AppItem? = runCatching { cache?.getString("gh_$full", null)?.let { json.decodeFromString(AppItem.serializer(), it) } }.getOrNull()
     private fun remember(full: String, a: AppItem) { runCatching { cache?.edit()?.putString("gh_$full", json.encodeToString(AppItem.serializer(), a))?.apply() } }
+    /** Every saved copy, no network: shown at once while the fresh lookup runs. */
+    fun saved(): List<AppItem> = (cache?.all?.keys.orEmpty()).filter { it.startsWith("gh_") }.mapNotNull { cached(it.removePrefix("gh_")) }
     private fun cachedMine(): List<AppItem> = (cache?.all?.keys.orEmpty()).filter { it.startsWith("gh_") }.mapNotNull { cached(it.removePrefix("gh_")) }.filter { it.categories.firstOrNull() == "by UmutK" }
 
     /** "ClaudeChat" -> "Claude Chat", "Uno-Groovy" -> "Uno Groovy"; my own apps keep the names I gave them. */

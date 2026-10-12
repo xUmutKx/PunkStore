@@ -43,5 +43,5 @@ fun Modifier.liquidGlass(base: Color, onClick: () -> Unit, enabled: Boolean = tr
             drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = .38f), Color.Transparent), endY = size.height * .5f), cornerRadius = r)
             drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = .75f), Color.White.copy(alpha = .12f))), cornerRadius = r, style = Stroke(1.2.dp.toPx()))
         }
-        .combinedClickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick)
+        .combinedClickable(interactionSource = src, indication = androidx.compose.foundation.LocalIndication.current, enabled = enabled, onClick = onClick)
 }

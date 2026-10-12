@@ -311,15 +311,10 @@ fun SettingsScreen(s: Store, onGoogleLogin: () -> Unit = {}, onAbout: () -> Unit
         listOf(
             Triple(InstallMethod.SESSION, t("Oturum kurucusu (önerilen)", "Session installer (recommended)"), t("Android PackageInstaller; her kurulumda onay ister", "Android PackageInstaller; asks to confirm each install")),
             Triple(InstallMethod.NATIVE, t("Sistem kurucusu", "Native installer"), t("Sistemin kendi kurulum ekranını açar", "Opens the system install screen")),
-            Triple(InstallMethod.ROOT, "Root", t("su ile sessiz kurulum/kaldırma (root gerekir)", "Silent install/uninstall via su (root required)")),
         ).forEach { (m, title, hint) ->
             Row(Modifier.fillMaxWidth().clickable { s.changeMethod(m) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(s.method == m, { s.changeMethod(m) }); Column { Text(title); Text(hint, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-        }
-        if (s.method == InstallMethod.ROOT) {
-            Text(when (s.rootOk) { true -> t("✓ Root erişimi var", "✓ Root access granted"); false -> t("✗ Root erişimi yok / reddedildi", "✗ No root access / denied"); null -> t("Root denetleniyor…", "Checking root…") }, fontSize = 12.sp, color = if (s.rootOk == true) Steam.greenA else MaterialTheme.colorScheme.error)
-            OutlinedButton({ s.testRoot() }) { Text(t("Root'u yeniden dene", "Retry root")) }
         }
         Row(verticalAlignment = Alignment.CenterVertically) { Text(t("Açılış animasyonu", "Startup animation"), Modifier.weight(1f)); Switch(s.splash, { s.changeSplash(it) }) }
         SectionTitle(t("Görünüm", "Appearance"), s, Modifier.padding(0.dp))

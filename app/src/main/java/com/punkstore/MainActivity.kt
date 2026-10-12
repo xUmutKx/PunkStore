@@ -45,8 +45,8 @@ enum class Tab(private val tr: String, private val en: String, val bottom: Boole
 }
 
 /** Gezinme anlık görüntüleri: AnimatedContent eski ve yeni ekranı ayrı ayrı çizebilsin diye. */
-private data class FullNav(val ach: Boolean, val steamAcc: Boolean, val about: Boolean, val login: Boolean, val pkg: String?) {
-    val depth get() = if (pkg != null) 1 else if (ach || steamAcc || about || login) 2 else 0
+private data class FullNav(val ach: Boolean, val steamAcc: Boolean, val about: Boolean, val login: Boolean, val pkg: String?, val native: String?) {
+    val depth get() = if (pkg != null) 1 else if (ach || steamAcc || about || login || native != null) 2 else 0
 }
 private data class InnerNav(val pkg: String?, val tab: Tab, val materialSearch: Boolean, val overlay: String?, val wishlist: Boolean, val settings: Boolean, val category: String?)
 
@@ -62,16 +62,18 @@ fun Root(s: Store) {
     var about by remember { mutableStateOf(false) }
     var achScreen by remember { mutableStateOf(false) }
     var steamAcc by remember { mutableStateOf(false) }
+    var nativePage by remember { mutableStateOf<String?>(null) }
     var overlay by remember { mutableStateOf<String?>(null) }
     var splash by remember { mutableStateOf(s.splash) }
     LaunchedEffect(s.xp, s.apps.size, s.liked, s.seen.size, s.lastCheck, s.design, s.method, s.googleEmail, s.photo, s.userName, s.showcase.size, s.filters, s.steamId, s.updateCount) { s.checkAchievements() }
     LaunchedEffect(s.apps.size, s.steamMap.size) { kotlinx.coroutines.delay(6000); s.prepareSplash() }
     LaunchedEffect(s.achToast) { if (s.achToast != null) { kotlinx.coroutines.delay(4500); s.dismissToast() } }
     fun nav(k: String) {
-        category = null; wishlist = false; settings = false; overlay = null; openPkg = null
+        category = null; wishlist = false; settings = false; overlay = null; openPkg = null; nativePage = null
         when (k) {
             "store" -> tab = Tab.STORE; "discover" -> tab = Tab.DISCOVER; "library" -> tab = Tab.LIBRARY; "updates" -> tab = Tab.UPDATES; "profile" -> tab = Tab.PROFILE; "menu" -> tab = Tab.MENU; "downloads" -> tab = Tab.UPDATES; "umutk" -> { tab = Tab.STORE; category = UMUTK_CAT };"search" -> { if (tab != Tab.SEARCH) prevTab = tab; tab = Tab.SEARCH }
             "wishlist" -> wishlist = true; "settings" -> settings = true; "about" -> about = true; "achievements", "achv" -> achScreen = true; "steam" -> steamAcc = true
+            "points", "community", "market", "workshop", "tournaments" -> nativePage = k
             "refresh" -> { s.refresh(); s.checkUpdates(true); s.loadSteamStore() }
             "daily" -> s.apps.filter { it.cover != null }.let { l -> if (l.isNotEmpty()) openPkg = l[((System.currentTimeMillis() / 86400000L) % l.size).toInt()].pkg }
             "random" -> s.apps.filter { it.cover != null }.let { l -> if (l.isNotEmpty()) openPkg = l.random().pkg }
@@ -80,15 +82,15 @@ fun Root(s: Store) {
     }
     LaunchedEffect(openPkg) { openPkg?.let { s.noteView(it) } }
     val app = openPkg?.let { s.byPkg(it) ?: s.anyPkg(it) }?.takeIf { it.source != "LOCAL" }
-    BackHandler(enabled = overlay != null || achScreen || steamAcc || about || login || app != null || category != null || wishlist || settings) {
-        when { overlay != null -> overlay = null; achScreen -> achScreen = false; steamAcc -> steamAcc = false; about -> about = false; login -> login = false; app != null -> openPkg = null; wishlist -> wishlist = false; settings -> settings = false; else -> category = null }
+    BackHandler(enabled = overlay != null || achScreen || steamAcc || about || login || app != null || category != null || wishlist || settings || nativePage != null) {
+        when { overlay != null -> overlay = null; achScreen -> achScreen = false; steamAcc -> steamAcc = false; about -> about = false; login -> login = false; nativePage != null -> nativePage = null; app != null -> openPkg = null; wishlist -> wishlist = false; settings -> settings = false; else -> category = null }
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
     Box(Modifier.fillMaxSize().then(if (s.design.steam && Steam.carbon) Modifier.carbon() else Modifier)) {
         if (splash) SplashOverlayHost(s) { splash = false }
         // Tam ekran sayfalar arası geçiş: ayrıntı sağdan kayarak gelir, diğerleri yumuşak solma + hafif büyüme
-        val full = FullNav(achScreen, steamAcc, about, login, if (app != null && !s.design.steam) openPkg else null)
+        val full = FullNav(achScreen, steamAcc, about, login, if (app != null && !s.design.steam) openPkg else null, nativePage)
         androidx.compose.animation.AnimatedContent(full, transitionSpec = {
             val fwd = targetState.depth > initialState.depth || (targetState.pkg != null && initialState.pkg != null)
             if (targetState.pkg != null || initialState.pkg != null) {
@@ -105,6 +107,8 @@ fun Root(s: Store) {
             AboutScreen(s) { about = false }
         } else if (fn.login) {
             GoogleLoginScreen({ mail, tok -> s.googleLogin(mail, tok); login = false }) { login = false }
+        } else if (fn.native != null) {
+            NativePageScreen(fn.native, s.steamId) { nativePage = null }
         } else if (fApp != null) {
             if (s.design.steam) SteamDetail(s, fApp, { openPkg = null }, onOpen = { openPkg = it }) { openPkg = null; category = it } else DetailScreen(s, fApp) { openPkg = null }
         } else {

@@ -18,7 +18,8 @@ enum class InstallMethod { SESSION, NATIVE, ROOT }
 /** Aurora Store tarzı ayarlar (SharedPreferences "punk"). */
 object Cfg {
     private fun sp(c: Context) = c.getSharedPreferences("punk", Context.MODE_PRIVATE)
-    fun method(c: Context) = runCatching { InstallMethod.valueOf(sp(c).getString("method", "SESSION")!!) }.getOrDefault(InstallMethod.SESSION)
+    // root is no longer offered in the picker; an old saved root choice falls back to the session installer
+    fun method(c: Context) = runCatching { InstallMethod.valueOf(sp(c).getString("method", "SESSION")!!) }.getOrDefault(InstallMethod.SESSION).let { if (it == InstallMethod.ROOT) InstallMethod.SESSION else it }
     fun deleteApk(c: Context) = sp(c).getBoolean("delApk", true)
     fun wifiOnly(c: Context) = sp(c).getBoolean("wifiOnly", false)
     fun wifiOk(c: Context): Boolean {

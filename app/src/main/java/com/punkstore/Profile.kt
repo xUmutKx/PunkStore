@@ -262,6 +262,8 @@ private fun SteamProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -> U
             SteamRow(t("İstek listesi", "Wishlist"), onClick = onWishlist)
             SteamRow(t("İstatistikler", "Statistics"), onClick = { onNav("stats") })
             SteamRow(t("Koleksiyonlar", "Collections"), onClick = { onNav("collections") })
+            SteamRow(t("Topluluk", "Community"), onClick = { onNav("community") })
+            SteamRow(t("Puan dükkanı", "Point Shop"), onClick = { onNav("points") })
             SteamRow(t("Rozetler ve başarımlar", "Badges & achievements"), onClick = onAchievements)
             SteamRow(t("Kütüphane", "Library"), onClick = { onNav("library") })
             SteamRow(t("Hesap ayrıntıları", "Account details"), t("Ayarlar, Google, kurulum", "Settings, Google, install"), dark = true, onClick = onSettings)
@@ -325,6 +327,8 @@ private fun MaterialProfile(s: Store, onOpen: (String) -> Unit, onWishlist: () -
                     Item(Icons.Filled.Favorite, t("İstek listesi", "Wishlist"), null, onWishlist)
                     Item(Icons.Filled.BarChart, t("İstatistikler", "Statistics")) { onNav("stats") }
                     Item(Icons.Filled.Folder, t("Koleksiyonlar", "Collections")) { onNav("collections") }
+                    Item(Icons.Filled.Groups, t("Topluluk", "Community")) { onNav("community") }
+                    Item(Icons.Filled.Stars, t("Puan dükkanı", "Point Shop")) { onNav("points") }
                     Item(Icons.Filled.EmojiEvents, t("Rozetler ve başarımlar", "Badges & achievements"), "${s.achUnlocked.size}/${ACHIEVEMENTS.size}", onAchievements)
                     Item(Icons.Filled.AccountCircle, t("Google hesabı", "Google account"), s.googleEmail ?: t("Bağlı değil (Ayarlar'dan giriş yap)", "Not signed in (use Settings)"), onSettings)
                 }

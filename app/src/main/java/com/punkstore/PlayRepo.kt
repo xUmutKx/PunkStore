@@ -82,17 +82,28 @@ object PlayRepo {
     }.getOrNull()
     fun googleEmail(c: Context) = googleCreds(c)?.first
 
+    /** com.google.android.gms: Google Play Services ya da microG (imzası Google'ınki değilse). Yoksa null; hata fırlatmaz. */
+    fun gmsKind(c: Context): String? = runCatching {
+        @Suppress("DEPRECATION")
+        val sig = c.packageManager.getPackageInfo("com.google.android.gms", android.content.pm.PackageManager.GET_SIGNATURES).signatures!![0]
+        val sha1 = java.security.MessageDigest.getInstance("SHA-1").digest(sig.toByteArray()).joinToString("") { "%02x".format(it) }
+        if (sha1 == "38918a453d07199354f8b19af05ec6562ced5788") "Google Play Services" else "microG"
+    }.getOrNull()
+
     /** WebView'den gelen oauth_token'ı AAS belirtecine çevirir (Aurora Store ile aynı yöntem). */
     suspend fun googleLogin(c: Context, email: String, oauthToken: String) = withContext(Dispatchers.IO) {
         val body = okhttp3.FormBody.Builder()
             .add("lang", Locale.getDefault().toString().replace("_", "-")).add("google_play_services_version", "19629032").add("sdk_version", android.os.Build.VERSION.SDK_INT.toString())
             .add("device_country", Locale.getDefault().country.lowercase()).add("Email", email).add("service", "ac2dm")
-            .add("get_accountid", "1").add("ACCESSTOKEN", "1").add("callerPkg", "com.google.android.gms").add("add_account", "1")
-            .add("Token", oauthToken).add("callerSig", "38918a453d07199354f8b19af05ec6562ced5788").build()
+            .add("get_accountid", "1").add("ACCESS_TOKEN", "1").add("callerPkg", "com.google.android.gms").add("add_account", "1")
+            .add("Token", oauthToken).add("droidguard_results", "null").add("callerSig", "38918a453d07199354f8b19af05ec6562ced5788").build()   // same fields gplayapi 3.6.3 sends (getAASTokenParams)
         val txt = http.newCall(Request.Builder().url("https://android.googleapis.com/auth").header("User-Agent", "GoogleAuth/1.4").header("app", "com.google.android.gms").post(body).build()).execute().use { it.body!!.string() }
         val aas = txt.lines().firstOrNull { it.startsWith("Token=") }?.removePrefix("Token=") ?: error("Google: " + txt.lines().firstOrNull { it.startsWith("Error=") }.orEmpty())
+        // Belirteci doğrula, sonra kaydet: geçersiz token yüzünden sahte "giriş yapıldı" durumu oluşmasın
+        val a = AuthHelper.using(client).build(email, aas, AuthHelper.Token.AAS, false, deviceProps(c), Locale.getDefault())
         File(c.filesDir, "play-google.txt").writeText("$email\n$aas")
-        reset(c); session(c)
+        File(c.filesDir, "play-auth.json").writeText(json.encodeToString(AuthData.serializer(), a))
+        auth = a
     }
 
     fun logout(c: Context) { File(c.filesDir, "play-google.txt").delete(); reset(c) }

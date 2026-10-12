@@ -32,7 +32,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -289,8 +288,6 @@ fun SteamTopBar(s: Store, onWishlist: () -> Unit) {
         Spacer(Modifier.width(8.dp))
         Text("PUNK STORE", color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 3.sp)
         Spacer(Modifier.weight(1f))
-        val ctx = LocalContext.current
-        IconButton({ openSteamWeb(ctx, "wallet") }) { Icon(Icons.Filled.AccountBalanceWallet, t("Cüzdan", "Wallet"), tint = Steam.dim) }
         IconButton(onWishlist) { BadgedBox({ if (s.wishlist.isNotEmpty()) Badge { Text("${s.wishlist.size}") } }) { Icon(Icons.Filled.Favorite, t("İstek listesi", "Wishlist"), tint = Steam.dim) } }
         if (s.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Steam.blue, strokeWidth = 2.dp)
         else IconButton({ s.refresh() }) { Icon(Icons.Filled.Refresh, t("Yenile", "Refresh"), tint = Steam.dim) }

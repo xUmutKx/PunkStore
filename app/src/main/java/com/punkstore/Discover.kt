@@ -70,7 +70,7 @@ fun DiscoverScreen(s: Store, onOpen: (String) -> Unit) {
                             onDragCancel = { scope.launch { x.animateTo(0f) } },
                         ) { change, drag -> change.consume(); scope.launch { x.snapTo(x.value + drag.x) } }
                     }) {
-                    DiscoverCard(s, top, img, Modifier.fillMaxSize().clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { img++ })
+                    DiscoverCard(s, top, img, Modifier.fillMaxSize().clickable { img++ })
                     if (x.value > 40f) Text(t("BEĞEN", "LIKE"), Modifier.align(Alignment.TopStart).padding(24.dp).graphicsLayer { rotationZ = -12f; alpha = (x.value / 280f).coerceIn(0f, 1f) }.background(Color(0x55000000)).padding(8.dp), color = Color(0xFF8CC63F), fontSize = 32.sp, fontWeight = FontWeight.Black)
                     if (x.value < -40f) Text(t("GEÇ", "NOPE"), Modifier.align(Alignment.TopEnd).padding(24.dp).graphicsLayer { rotationZ = 12f; alpha = (-x.value / 280f).coerceIn(0f, 1f) }.background(Color(0x55000000)).padding(8.dp), color = Color(0xFFE5484D), fontSize = 32.sp, fontWeight = FontWeight.Black)
                 }

@@ -129,7 +129,7 @@ fun SteamTopBar2(s: Store, onNav: (String) -> Unit) {
                 Icon(Icons.Filled.Search, null, tint = Steam.dim)
             }
             Spacer(Modifier.width(10.dp))
-            if (s.loading || s.checking) { CircularProgressIndicator(Modifier.size(20.dp), color = Steam.blue, strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)) }
+            if (s.loading) { CircularProgressIndicator(Modifier.size(20.dp), color = Steam.blue, strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)) }
             Box(Modifier.clickable { onNav("profile") }) { Avatar(s, 44) }
         }
     }
@@ -142,20 +142,6 @@ fun SteamMenuTopBar(s: Store, onNav: (String) -> Unit) {
         Text(t("MENÜ", "MENU"), Modifier.align(Alignment.Center), color = W, fontSize = 22.sp, letterSpacing = 4.sp)
         Box(Modifier.align(Alignment.CenterEnd).clickable { onNav("profile") }) { Avatar(s, 40) }
     }
-}
-
-/** Steam pages that live on the web: Point Shop, Community, Market, Wallet and Play tournaments open in the browser. */
-private val STEAM_WEB = mapOf(
-    "points" to "https://store.steampowered.com/points/shop",
-    "community" to "https://steamcommunity.com/",
-    "market" to "https://steamcommunity.com/market/",
-    "wallet" to "https://store.steampowered.com/account/",
-    "tournaments" to "https://store.steampowered.com/",
-    "workshop" to "https://steamcommunity.com/workshop/",
-)
-fun openSteamWeb(ctx: android.content.Context, key: String) {
-    val url = STEAM_WEB[key] ?: return
-    runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
 private class MenuItem(val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val badge: Int = 0)
@@ -177,10 +163,6 @@ fun SteamMenu(s: Store, onNav: (String) -> Unit) {
         MenuItem("daily", Icons.Filled.WbSunny, t("Günün uygulaması", "App of the day")),
         MenuItem("random", Icons.Filled.Casino, t("Rastgele uygulama", "Random app")),
         MenuItem("refresh", Icons.Filled.Refresh, t("Kataloğu yenile", "Refresh catalog")),
-        MenuItem("points", Icons.Filled.Stars, t("Puan dükkanı", "Point Shop")),
-        MenuItem("community", Icons.Filled.Groups, t("Topluluk", "Community")),
-        MenuItem("market", Icons.Filled.Storefront, t("Pazar", "Market")),
-        MenuItem("workshop", Icons.Filled.Build, t("Atölye", "Workshop")),
         MenuItem("tournaments", Icons.Filled.EmojiEvents, t("Play turnuvaları", "Play tournaments")),
         MenuItem("settings", Icons.Filled.Settings, t("Ayarlar", "Settings")),
         MenuItem("about", Icons.Filled.Info, t("Bilgi", "About")),
@@ -196,8 +178,7 @@ fun SteamMenu(s: Store, onNav: (String) -> Unit) {
         }
         item { Spacer(Modifier.height(14.dp)) }
         items(more, key = { it.key }) { m ->
-            val ctx = LocalContext.current
-            Row(Modifier.fillMaxWidth().clickable { if (m.key in STEAM_WEB) openSteamWeb(ctx, m.key) else onNav(m.key) }.padding(horizontal = 18.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().clickable { onNav(m.key) }.padding(horizontal = 18.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(m.icon, null, tint = Steam.dim, modifier = Modifier.size(22.dp)); Spacer(Modifier.width(18.dp))
                 Text(m.label, color = Steam.dim, fontSize = 18.sp)
             }
@@ -280,6 +261,7 @@ fun SteamStore(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit,
     androidx.compose.runtime.CompositionLocalProvider(LocalImpression provides (if (s.hideViewed) { p: String -> s.noteImpression(p) } else null)) {
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(s.loading || s.checking, { onNav("refresh") }, Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
+        item { SteamStoreNav(s, onOpen, onCategory, onNav) }
         item {
             if (s.loading) Column(Modifier.fillMaxWidth().padding(14.dp)) {
                 Text(if (s.progress < .9f) t("Katalog indiriliyor…", "Downloading catalog…") else t("Katalog işleniyor…", "Processing catalog…"), fontSize = 12.sp, color = Steam.dim)
@@ -549,6 +531,11 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Un
                 a.extra["langs"]?.let { lg -> Text(t("DİLLER", "LANGUAGES"), Modifier.padding(top = 16.dp, bottom = 6.dp), color = W, fontSize = 16.sp); Text(lg.take(300), color = Steam.dim, fontSize = 13.sp) }
             }
             if (s.launches[a.pkg] != null) Text(t("Açılış: ${s.launches[a.pkg]} kez", "Launched ${s.launches[a.pkg]} times"), Modifier.padding(top = 8.dp), color = Steam.dim, fontSize = 13.sp)
+            // ---- ATÖLYE VE PAZAR (bu oyuna ait)
+            if (a.source == "STEAM") steamId.toIntOrNull()?.let { id ->
+                Text(t("ATÖLYE VE PAZAR", "WORKSHOP AND MARKET"), Modifier.padding(top = 18.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
+                GameWorkshopMarket(id)
+            }
             // ---- GİZLİLİK RAPORU
             if (a.source != "STEAM") {
                 Text(t("GİZLİLİK RAPORU", "PRIVACY REPORT"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
@@ -610,4 +597,72 @@ fun CollectionDialog(s: Store, a: AppItem, onDone: () -> Unit) {
                 TextButton({ s.addCollection(newName); newName = "" }) { Text("+") }
             }
         } })
+}
+
+/** Store header, as on Steam's store: MENU, WISHLIST and WALLET, then the browse list. Rows with a game list show a game picture and open the list below. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit, onNav: (String) -> Unit) {
+    var browse by remember { mutableStateOf<String?>(null) }
+    fun gameList(k: String?): List<AppItem> = when (k) {
+        "recs" -> s.hv(s.recommended)
+        "new", "top", "specials" -> s.steamLists[k]?.let { s.hv(it) }.orEmpty()
+        else -> emptyList()
+    }
+    // key, label. Rows with a game list open it below; "news", "prefs", "points" and "wishlist" open their own page
+    val rows = listOf(
+        "home" to t("Mağaza ana sayfası", "Store home"),
+        "new" to t("Yeni çıkanlar", "New releases"),
+        "top" to t("Çok satanlar", "Top sellers"),
+        "specials" to t("İndirimler ve etkinlikler", "Discounts & events"),
+        "news" to t("Haberler ve güncellemeler", "News & updates"),
+        "prefs" to t("Tercihlerim", "My preferences"),
+        "points" to t("Puan dükkanı", "Points shop"),
+        "wishlist" to t("İstek listem", "My wishlist"),
+        "gift" to t("Hediye kartları", "Gift cards"),
+        "family" to t("Ailem", "My family"),
+        "recs" to t("Öneriler", "Recommendations"),
+        "cats" to t("Kategoriler", "Categories"),
+        "ways" to t("Oynama şekilleri", "Ways to play"),
+        "special" to t("Özel bölümler", "Special sections"),
+    )
+    Column(Modifier.fillMaxWidth().background(Steam.panel)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(t("MENÜ", "MENU"), Modifier.clickable { onNav("menu") }.padding(end = 20.dp), color = W, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(t("İSTEK LİSTESİ", "WISHLIST"), Modifier.clickable { onNav("wishlist") }, color = W, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Spacer(Modifier.weight(1f))
+            Text(t("CÜZDAN", "WALLET") + "  (\$0.00 USD)", color = Steam.dim, fontSize = 13.sp)
+        }
+        Text(t("EN ÇOK GEZİLENLER", "BROWSE TOP DESTINATIONS"), Modifier.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), color = Steam.dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        rows.forEach { (key, label) ->
+            val sel = browse == key
+            val pic = gameList(key).firstOrNull()
+            Row(Modifier.fillMaxWidth().clickable {
+                when (key) {
+                    "home" -> browse = null
+                    "news" -> onNav("discover")
+                    "prefs" -> onNav("settings")
+                    "points", "wishlist" -> onNav(key)
+                    else -> browse = if (sel) null else key
+                }
+            }.background(if (sel) Steam.row else Color.Transparent).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(width = 56.dp, height = 26.dp).clip(RoundedCornerShape(Steam.corner.dp)), contentAlignment = Alignment.Center) {
+                    pic?.cover?.let { c -> coil.compose.AsyncImage(c, null, Modifier.fillMaxSize()) }
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(label, Modifier.weight(1f), color = if (key == "home") Steam.blue else W, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+        }
+        // the open list under the rows: games with pictures, or categories
+        when (browse) {
+            "cats" -> FlowRow(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                s.categories.take(30).forEach { c -> Text(c, Modifier.clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.wish).clickable { onCategory(c) }.padding(horizontal = 12.dp, vertical = 8.dp), color = W, fontSize = 13.sp) }
+            }
+            "new", "top", "specials", "recs" -> gameList(browse).let { l ->
+                if (l.isEmpty()) Text(t("Henüz içerik yok", "Nothing here yet"), Modifier.padding(14.dp), color = Steam.dim, fontSize = 13.sp)
+                else AppCarousel(s, l, onOpen)
+            }
+            else -> if (browse != null) Text(t("Henüz içerik yok", "Nothing here yet"), Modifier.padding(14.dp), color = Steam.dim, fontSize = 13.sp)
+        }
+    }
 }

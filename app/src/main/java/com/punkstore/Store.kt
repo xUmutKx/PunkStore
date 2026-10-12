@@ -224,10 +224,11 @@ class Store(app: Application) : AndroidViewModel(app) {
     var ghLoading by mutableStateOf(false); private set
     var ghExtra by mutableStateOf((prefs.getString("ghExtra", "") ?: "").split(',').filter { it.isNotBlank() }); private set
     private var ghSrcLoaded = false
+    private var ghMineLoaded = false
     fun loadGithub() {
-        if (ghLoading || ghMap.values.any { it.categories.firstOrNull() == "by UmutK" }) return
+        if (ghLoading || ghMineLoaded) return
         ghLoading = true
-        viewModelScope.launch { runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }; ghLoading = false }
+        viewModelScope.launch { runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it }; ghMineLoaded = true }; ghLoading = false }
     }
     /** Reload button: ask GitHub again for my apps and the sources. */
     fun reloadGithub() {
@@ -528,6 +529,7 @@ class Store(app: Application) : AndroidViewModel(app) {
             if (fdroid.isEmpty() || FdroidRepo.cacheAgeMs(app) > 24 * 3600_000L) refresh()
         }
         loadExtra()
+        GitHubRepo.saved().forEach { ghMap[it.pkg] = it }   // saved GitHub copies show at once
         loadMore()
         refreshInstalled()
         loadPlay()

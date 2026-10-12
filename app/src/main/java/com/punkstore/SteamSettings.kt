@@ -27,6 +27,7 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
     var lang by remember { mutableStateOf(I18n.pref) }
     var disp by remember { mutableStateOf(s.dispenser) }
     val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "" }
+    val gms = remember { PlayRepo.gmsKind(ctx) }
     Column(Modifier.fillMaxSize().background(Steam.bg)) {
         SteamPageHeader(t("Ayarlar", "Settings"), onBack)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
@@ -34,6 +35,7 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
             SteamRow(t("Steam hesabı", "Steam account"), s.steamProfile?.name ?: if (s.steamId.isNotBlank()) s.steamWho.ifBlank { s.steamId } else t("Bağlı değil — oyunların ve başarımların için bağla", "Not linked — link for your games and achievements"), Icons.Filled.SportsEsports, onClick = { onNav("steam") })
             SteamRow(t("Google hesabı", "Google account"), s.googleEmail ?: t("Anonim oturum (giriş yaparsan Play daha hızlı)", "Anonymous session (sign in for faster Play)"), Icons.Filled.AccountCircle,
                 onClick = { if (s.googleEmail == null) onGoogleLogin() }, trailing = if (s.googleEmail != null) { { Text(t("Çıkış", "Sign out"), Modifier.clip(RoundedCornerShape(4.dp)).background(Steam.panel2).pressScale({ s.googleLogout() }).padding(horizontal = 12.dp, vertical = 8.dp), color = Color.White, fontWeight = FontWeight.Bold) } } else null)
+            SteamRow(t("Google Play Services / microG", "Google Play Services / microG"), gms ?: t("Bulunamadı (Play anonim oturumla yine çalışır)", "Not found (Play still works with an anonymous session)"), if (gms != null) Icons.Filled.CheckCircle else Icons.Filled.Warning, chevron = false)
 
             SteamSection(t("Alt sekmeler (sıralama)", "Bottom tabs (order)"))
             s.orderedTabs().forEachIndexed { i, tb ->
