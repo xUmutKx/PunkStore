@@ -604,6 +604,7 @@ fun CollectionDialog(s: Store, a: AppItem, onDone: () -> Unit) {
 @Composable
 fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit, onNav: (String) -> Unit) {
     var browse by remember { mutableStateOf<String?>(null) }
+    var more by remember { mutableStateOf(false) }
     fun gameList(k: String?): List<AppItem> = when (k) {
         "recs" -> s.hv(s.recommended)
         "new", "top", "specials" -> s.steamLists[k]?.let { s.hv(it) }.orEmpty()
@@ -611,20 +612,20 @@ fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Un
     }
     // key, label. Rows with a game list open it below; "news", "prefs", "points" and "wishlist" open their own page
     val rows = listOf(
-        "home" to t("Mağaza ana sayfası", "Store home"),
-        "new" to t("Yeni çıkanlar", "New releases"),
-        "top" to t("Çok satanlar", "Top sellers"),
-        "specials" to t("İndirimler ve etkinlikler", "Discounts & events"),
-        "news" to t("Haberler ve güncellemeler", "News & updates"),
-        "prefs" to t("Tercihlerim", "My preferences"),
-        "points" to t("Puan dükkanı", "Points shop"),
-        "wishlist" to t("İstek listem", "My wishlist"),
-        "gift" to t("Hediye kartları", "Gift cards"),
-        "family" to t("Ailem", "My family"),
-        "recs" to t("Öneriler", "Recommendations"),
-        "cats" to t("Kategoriler", "Categories"),
-        "ways" to t("Oynama şekilleri", "Ways to play"),
-        "special" to t("Özel bölümler", "Special sections"),
+        Triple("home", Icons.Filled.Storefront, t("Mağaza ana sayfası", "Store home")),
+        Triple("new", Icons.Filled.NewReleases, t("Yeni çıkanlar", "New releases")),
+        Triple("top", Icons.Filled.TrendingUp, t("Çok satanlar", "Top sellers")),
+        Triple("specials", Icons.Filled.LocalOffer, t("İndirimler ve etkinlikler", "Discounts & events")),
+        Triple("news", Icons.Filled.Article, t("Haberler ve güncellemeler", "News & updates")),
+        Triple("prefs", Icons.Filled.Tune, t("Tercihlerim", "My preferences")),
+        Triple("points", Icons.Filled.Stars, t("Puan dükkanı", "Points shop")),
+        Triple("wishlist", Icons.Filled.Favorite, t("İstek listem", "My wishlist")),
+        Triple("gift", Icons.Filled.CardGiftcard, t("Hediye kartları", "Gift cards")),
+        Triple("family", Icons.Filled.Groups, t("Ailem", "My family")),
+        Triple("recs", Icons.Filled.ThumbUp, t("Öneriler", "Recommendations")),
+        Triple("cats", Icons.Filled.Category, t("Kategoriler", "Categories")),
+        Triple("ways", Icons.Filled.SportsEsports, t("Oynama şekilleri", "Ways to play")),
+        Triple("special", Icons.Filled.Apps, t("Özel bölümler", "Special sections")),
     )
     Column(Modifier.fillMaxWidth().background(Steam.panel)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -634,9 +635,15 @@ fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Un
             Text(t("CÜZDAN", "WALLET") + "  (\$0.00 USD)", color = Steam.dim, fontSize = 13.sp)
         }
         Text(t("EN ÇOK GEZİLENLER", "BROWSE TOP DESTINATIONS"), Modifier.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), color = Steam.dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        rows.forEach { (key, label) ->
+        rows.forEachIndexed { idx, (key, icon, label) ->
+            // the first five rows show; the rest fold under "More" so the menu stays short
+            if (idx == 5) Row(Modifier.fillMaxWidth().clickable { more = !more }.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (more) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, Modifier.size(22.dp), tint = Steam.dim)
+                Spacer(Modifier.width(14.dp))
+                Text(if (more) t("Daha az", "Less") else t("Daha fazla", "More"), Modifier.weight(1f), color = Steam.dim, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            if (idx >= 5 && !more) return@forEachIndexed
             val sel = browse == key
-            val pic = gameList(key).firstOrNull()
             Row(Modifier.fillMaxWidth().clickable {
                 when (key) {
                     "home" -> browse = null
@@ -646,11 +653,10 @@ fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Un
                     else -> browse = if (sel) null else key
                 }
             }.background(if (sel) Steam.row else Color.Transparent).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(width = 56.dp, height = 26.dp).clip(RoundedCornerShape(Steam.corner.dp)), contentAlignment = Alignment.Center) {
-                    pic?.cover?.let { c -> coil.compose.AsyncImage(c, null, Modifier.fillMaxSize()) }
-                }
-                Spacer(Modifier.width(12.dp))
-                Text(label, Modifier.weight(1f), color = if (key == "home") Steam.blue else W, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                val tint = if (key == "home") Steam.blue else W
+                Icon(icon, null, Modifier.size(22.dp), tint = tint)
+                Spacer(Modifier.width(14.dp))
+                Text(label, Modifier.weight(1f), color = tint, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
         // the open list under the rows: games with pictures, or categories
