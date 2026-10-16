@@ -34,16 +34,16 @@ import coil.compose.AsyncImage
  */
 @Composable
 fun SteamSearch(s: Store, onOpen: (String) -> Unit, onClose: () -> Unit) {
-    var q by remember { mutableStateOf("") }
-    var full by remember { mutableStateOf(false) }
+    var q by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var full by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var filterOpen by remember { mutableStateOf(false) }
     val st = rememberSearch(s, q, full)
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    LaunchedEffect(q) { if (q.isNotBlank()) full = false }
+    // Ayrıntıdan dönünce klavye açılmasın; yalnız boş aramada odaklan
+    LaunchedEffect(Unit) { if (q.isEmpty()) runCatching { focus.requestFocus() } }
     fun submit() { full = true; if (q.isNotBlank()) s.noteSearch(q) }
 
-    @Composable fun Field(mod: Modifier) = TextField(q, { q = it }, mod.focusRequester(focus), singleLine = true, placeholder = { Text(t("Ara", "Search"), color = Steam.dim) },
+    @Composable fun Field(mod: Modifier) = TextField(q, { q = it; if (it.isNotBlank()) full = false }, mod.focusRequester(focus), singleLine = true, placeholder = { Text(t("Ara", "Search"), color = Steam.dim) },
         leadingIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Geri", "Back"), tint = Steam.dim) } },
         trailingIcon = { if (q.isNotEmpty()) IconButton({ q = "" }) { Icon(Icons.Filled.Close, null, tint = Steam.dim) } else Icon(Icons.Filled.Search, null, tint = Steam.dim) },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { submit() }),

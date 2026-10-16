@@ -76,12 +76,12 @@ fun SteamSettingsScreen(s: Store, onBack: () -> Unit, onGoogleLogin: () -> Unit,
             }
 
             SteamSection(t("Kurulum yöntemi", "Install method"))
-            SteamChoiceRow(t("Oturum kurucusu", "Session installer"), t("Önerilen · Android PackageInstaller, her kurulumda onay ister", "Recommended · Android PackageInstaller, asks each time"), s.method == InstallMethod.SESSION) { s.changeMethod(InstallMethod.SESSION) }
-            SteamChoiceRow(t("Sistem kurucusu", "Native installer"), t("Sistemin kendi kurulum ekranı", "The system install screen"), s.method == InstallMethod.NATIVE) { s.changeMethod(InstallMethod.NATIVE) }
             SteamChoiceRow("Root", t("su ile sessiz kurulum / kaldırma", "Silent install / uninstall via su"), s.method == InstallMethod.ROOT) { s.changeMethod(InstallMethod.ROOT) }
             if (s.method == InstallMethod.ROOT) SteamRow(when (s.rootOk) { true -> t("✓ Root erişimi var", "✓ Root access granted"); false -> t("✗ Root erişimi yok", "✗ No root access"); null -> t("Root denetleniyor…", "Checking root…") },
                 t("Yeniden denemek için dokun", "Tap to retry"), titleColor = if (s.rootOk == true) Steam.greenA else Color(0xFFE07B53), onClick = { s.testRoot() }, chevron = false)
 
+            SteamChoiceRow(t("Oturum kurucusu", "Session installer"), t("Önerilen · Android PackageInstaller, her kurulumda onay ister", "Recommended · Android PackageInstaller, asks each time"), s.method == InstallMethod.SESSION) { s.changeMethod(InstallMethod.SESSION) }
+            SteamChoiceRow(t("Sistem kurucusu", "Native installer"), t("Sistemin kendi kurulum ekranı", "The system install screen"), s.method == InstallMethod.NATIVE) { s.changeMethod(InstallMethod.NATIVE) }
             SteamSection(t("İndirmeler", "Downloads"))
             SteamRow(t("İndirmeler", "Downloads"), t("Kuyruk, duraklat / sürdür, geçmiş", "Queue, pause / resume, history"), Icons.Filled.Download, onClick = { onNav("downloads") })
             SteamSwitchRow(t("Kurulumdan sonra APK'yı sil", "Delete APK after install"), on = s.deleteApk) { s.changeDeleteApk(it) }

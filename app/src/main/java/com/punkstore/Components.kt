@@ -357,7 +357,8 @@ fun DownloadDock(s: Store, onOpen: () -> Unit) {
         val tk = tasks.firstOrNull { it.state == DlState.DOWNLOADING } ?: tasks.firstOrNull() ?: return@AnimatedVisibility
         val prog by androidx.compose.animation.core.animateFloatAsState(if (tk.state == DlState.INSTALLING || tk.state == DlState.VERIFYING) 1f else tk.progress, androidx.compose.animation.core.tween(250), label = "dock")
         val mat = Steam.material
-        val bg = if (mat) MaterialTheme.colorScheme.surfaceContainerHigh else if (Steam.pal === PAL_MODERN) Color(0xE61B2838) else Steam.panel
+        // the same panel colour as the menu above it, in every look
+        val bg = if (mat) MaterialTheme.colorScheme.surfaceContainerHigh else Steam.panel
         val fg = if (mat) MaterialTheme.colorScheme.onSurface else Color.White
         val dim = if (mat) MaterialTheme.colorScheme.onSurfaceVariant else Steam.dim
         Column(Modifier.fillMaxWidth().background(bg).clickable(onClick = onOpen)) {

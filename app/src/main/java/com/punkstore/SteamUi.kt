@@ -138,7 +138,7 @@ fun SteamTopBar2(s: Store, onNav: (String) -> Unit) {
 /** Menu page's top bar, as in Steam: centered title, profile picture on the right. */
 @Composable
 fun SteamMenuTopBar(s: Store, onNav: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().height(58.dp).padding(horizontal = 14.dp)) {
+    Box(Modifier.fillMaxWidth().background(Steam.topBrush).statusBarsPadding().height(44.dp).padding(horizontal = 14.dp)) {
         Text(t("MENÜ", "MENU"), Modifier.align(Alignment.Center), color = W, fontSize = 22.sp, letterSpacing = 4.sp)
         Box(Modifier.align(Alignment.CenterEnd).clickable { onNav("profile") }) { Avatar(s, 40) }
     }
@@ -605,6 +605,8 @@ fun CollectionDialog(s: Store, a: AppItem, onDone: () -> Unit) {
 fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Unit, onNav: (String) -> Unit) {
     var browse by remember { mutableStateOf<String?>(null) }
     var more by remember { mutableStateOf(false) }
+    // the list stays hidden until MENU is tapped
+    var menuOpen by remember { mutableStateOf(false) }
     fun gameList(k: String?): List<AppItem> = when (k) {
         "recs" -> s.hv(s.recommended)
         "new", "top", "specials" -> s.steamLists[k]?.let { s.hv(it) }.orEmpty()
@@ -628,12 +630,12 @@ fun SteamStoreNav(s: Store, onOpen: (String) -> Unit, onCategory: (String) -> Un
         Triple("special", Icons.Filled.Apps, t("Özel bölümler", "Special sections")),
     )
     Column(Modifier.fillMaxWidth().background(Steam.panel)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(t("MENÜ", "MENU"), Modifier.clickable { onNav("menu") }.padding(end = 20.dp), color = W, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(t("İSTEK LİSTESİ", "WISHLIST"), Modifier.clickable { onNav("wishlist") }, color = W, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Spacer(Modifier.weight(1f))
-            Text(t("CÜZDAN", "WALLET") + "  (\$0.00 USD)", color = Steam.dim, fontSize = 13.sp)
+        // the two tabs sit in the middle, in a thinner weight; the wallet line is gone from here
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text(t("MENÜ", "MENU"), Modifier.clickable { menuOpen = !menuOpen }.padding(end = 28.dp), color = W, fontWeight = FontWeight.Normal, fontSize = 13.sp)
+            Text(t("İSTEK LİSTESİ", "WISHLIST"), Modifier.clickable { onNav("wishlist") }, color = W, fontWeight = FontWeight.Normal, fontSize = 13.sp)
         }
+        if (!menuOpen) return@Column
         Text(t("EN ÇOK GEZİLENLER", "BROWSE TOP DESTINATIONS"), Modifier.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), color = Steam.dim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         rows.forEachIndexed { idx, (key, icon, label) ->
             // the first five rows show; the rest fold under "More" so the menu stays short

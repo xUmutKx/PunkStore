@@ -86,6 +86,13 @@ fun Root(s: Store) {
         when { overlay != null -> overlay = null; achScreen -> achScreen = false; steamAcc -> steamAcc = false; about -> about = false; login -> login = false; nativePage != null -> nativePage = null; app != null -> openPkg = null; wishlist -> wishlist = false; settings -> settings = false; else -> category = null }
     }
 
+    // Liste ekranlarının kaydırma konumu ayrıntı açılıp kapanınca korunsun: durum burada, liste/ayrıntı geçişinin üstünde tutulur
+    val saver = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val inner = InnerNav(if (app != null && s.design.steam) openPkg else null, if (tab == Tab.SEARCH && s.design.steam) prevTab else tab, tab == Tab.SEARCH && !s.design.steam, overlay, wishlist, settings, category)
+    var listKey by remember { mutableStateOf("") }
+    // Başka bir liste ekranına geçince eskisinin konumu atılır (sekme değişiminde davranış eskisi gibi)
+    LaunchedEffect(inner) { val k = inner.toString(); if (inner.pkg == null && k != listKey) { if (listKey.isNotEmpty()) saver.removeState(listKey); listKey = k } }
+    LaunchedEffect(tab) { if (tab != Tab.SEARCH) saver.removeState("steamSearch") }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
     Box(Modifier.fillMaxSize().then(if (s.design.steam && Steam.carbon) Modifier.carbon() else Modifier)) {
         if (splash) SplashOverlayHost(s) { splash = false }
@@ -118,7 +125,6 @@ fun Root(s: Store) {
                 bottomBar = { Column { DownloadDock(s) { openPkg = null; category = null; wishlist = false; settings = false; tab = Tab.UPDATES }; BottomBar(s.design, tab, s.updateCount, s.orderedTabs(), s.floatDock && s.design.steam) { if (it == Tab.SEARCH && tab != Tab.SEARCH) prevTab = tab; tab = it; openPkg = null; category = null; wishlist = false; settings = false } } },
             ) { pad ->
                 Box(Modifier.padding(pad).fillMaxSize()) {
-                    val inner = InnerNav(if (app != null && s.design.steam) openPkg else null, if (tab == Tab.SEARCH && s.design.steam) prevTab else tab, tab == Tab.SEARCH && !s.design.steam, overlay, wishlist, settings, category)
                     // Sekmeler arası: yöne göre kayma (sağdaki sekmeye geçince sağdan gelir)
                     androidx.compose.animation.AnimatedContent(inner, transitionSpec = {
                         val dir = targetState.tab.ordinal.compareTo(initialState.tab.ordinal)
@@ -127,6 +133,7 @@ fun Root(s: Store) {
                                 (androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(260)) { -dir * it / 5 } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)))
                         else (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(240)) { it / 14 }) togetherWith androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120))
                     }, label = "tab") { n ->
+                    val body: @Composable () -> Unit = {
                     Box(Modifier.fillMaxSize()) {
                     when {
                         n.pkg != null && s.design.steam -> s.byPkg(n.pkg).let { it ?: s.anyPkg(n.pkg) }?.let { SteamDetail(s, it, { openPkg = null }, onOpen = { openPkg = it }) { openPkg = null; category = it } }
@@ -145,11 +152,14 @@ fun Root(s: Store) {
                     }
                     }
                     }
+                    // Ayrıntı sayfası kendi durumunu tutmaz; yalnız liste ekranları anahtarla saklanır (Bundle için String anahtar)
+                    if (n.pkg == null) saver.SaveableStateProvider(n.toString(), body) else body()
+                    }
                 }
             }
         }
         }
-        if (tab == Tab.SEARCH && s.design.steam && app == null && !achScreen && !steamAcc && !about && !login) SteamSearch(s, { openPkg = it }, { tab = prevTab })
+        if (tab == Tab.SEARCH && s.design.steam && app == null && !achScreen && !steamAcc && !about && !login) saver.SaveableStateProvider("steamSearch") { SteamSearch(s, { openPkg = it }, { tab = prevTab }) }
         Browser.url?.let { u -> Box(Modifier.fillMaxSize().zIndex(8f)) { WebScreen(u) { Browser.url = null } } }
         s.achToast?.let { a ->
             Row(Modifier.align(androidx.compose.ui.Alignment.TopCenter).statusBarsPadding().padding(12.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(Steam.corner.dp)).background(Steam.row).border(1.dp, Steam.btn, androidx.compose.foundation.shape.RoundedCornerShape(Steam.corner.dp)).clickable { s.dismissToast(); achScreen = true }.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

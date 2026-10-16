@@ -218,8 +218,8 @@ fun rememberSearch(s: Store, q: String, browse: Boolean): SearchState {
 
 @Composable
 fun SearchScreen(s: Store, onOpen: (String) -> Unit) {
-    var q by remember { mutableStateOf("") }
-    var browse by remember { mutableStateOf(false) }
+    var q by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var browse by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var filterOpen by remember { mutableStateOf(false) }
     val st = rememberSearch(s, q, browse); val res = st.res; val busy = st.busy
     LaunchedEffect(q) { if (q.isNotBlank()) browse = false }

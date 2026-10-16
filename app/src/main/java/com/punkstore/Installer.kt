@@ -19,7 +19,12 @@ enum class InstallMethod { SESSION, NATIVE, ROOT }
 object Cfg {
     private fun sp(c: Context) = c.getSharedPreferences("punk", Context.MODE_PRIVATE)
     // root is no longer offered in the picker; an old saved root choice falls back to the session installer
-    fun method(c: Context) = runCatching { InstallMethod.valueOf(sp(c).getString("method", "SESSION")!!) }.getOrDefault(InstallMethod.SESSION).let { if (it == InstallMethod.ROOT) InstallMethod.SESSION else it }
+    // one-time: installs that saved the native system installer go back to the session installer (the default)
+    fun method(c: Context): InstallMethod {
+        val p = sp(c)
+        if (!p.getBoolean("methodMig2", false)) p.edit().putString("method", "SESSION").putBoolean("methodMig2", true).apply()
+        return runCatching { InstallMethod.valueOf(sp(c).getString("method", "SESSION")!!) }.getOrDefault(InstallMethod.SESSION).let { if (it == InstallMethod.ROOT) InstallMethod.SESSION else it }
+    }
     fun deleteApk(c: Context) = sp(c).getBoolean("delApk", true)
     fun wifiOnly(c: Context) = sp(c).getBoolean("wifiOnly", false)
     fun wifiOk(c: Context): Boolean {
