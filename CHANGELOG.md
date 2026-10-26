@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.75
+- The extra APK button beside Get is gone (it squeezed the button). The Android mark at the top right of an app's page saves the APK to the Downloads folder.
+
 ## 0.74
 - Google Play downloads are as small as Play's own: only the splits of this screen's density and of the phone's languages are fetched (every density and every language used to come down).
 - A small Android button to the left of every Get / Update button saves the app as a file in the Downloads folder instead of installing it (one APK as it is, an app with splits as a `.apks` zip).

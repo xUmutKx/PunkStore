@@ -89,19 +89,7 @@ fun Modifier.pressScale(onClick: () -> Unit, enabled: Boolean = true, onLongClic
 
 /** Steam'in yeşil "Yükle" düğmesi / Material'de dolu düğme. İndirme sürerken düğmenin içi soldan sağa dolar; dokununca duraklat / devam / tekrar dene. */
 @Composable
-fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: Boolean = false) {
-    val ctx = LocalContext.current
-    val canFile = a.source != "STEAM" && a.source != "LOCAL" && s.dl[a.pkg]?.active != true
-    if (!canFile) { ActionButtonCore(s, a, modifier, compact); return }
-    // the little APK button at its left: the file goes straight to the Downloads folder
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(if (compact) 34.dp else 44.dp).clip(RoundedCornerShape(if (s.design.steam) 2.dp else 12.dp)).background(if (s.design.steam) Steam.panel2 else MaterialTheme.colorScheme.surfaceVariant).pressScale({ s.saveApk(a, ctx) }), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Android, t("APK olarak kaydet", "Save as APK"), tint = if (s.design.steam) Steam.text else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(if (compact) 18.dp else 22.dp))
-        }
-        Spacer(Modifier.width(6.dp))
-        ActionButtonCore(s, a, modifier, compact)
-    }
-}
+fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: Boolean = false) = ActionButtonCore(s, a, modifier, compact)
 
 @Composable
 private fun ActionButtonCore(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: Boolean = false) {

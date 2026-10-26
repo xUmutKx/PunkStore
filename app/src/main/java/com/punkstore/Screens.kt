@@ -394,6 +394,10 @@ fun DetailScreen(s: Store, a: AppItem, onBack: () -> Unit) {
                     Text(if (a.source == "PLAY") (if (a.price.isBlank()) t("Ücretsiz", "Free") else a.price) + (if (a.rating > 0) "  ★ %.1f".format(a.rating) else "") else if (st) t("ÜCRETSİZ — Açık kaynak", "FREE — Open source") else t("Ücretsiz", "Free"), fontWeight = FontWeight.Bold, color = if (st) Color(0xFFBEEE11) else MaterialTheme.colorScheme.primary)
                     Text(t("Sürüm", "Version") + " ${a.versionName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (a.source != "STEAM" && a.source != "LOCAL" && s.dl[a.pkg]?.active != true) {
+                    val ctxA = androidx.compose.ui.platform.LocalContext.current
+                    Icon(Icons.Filled.Android, t("APK olarak kaydet", "Save as APK"), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).clickable { s.saveApk(a, ctxA) }.padding(6.dp))
+                }
                 ActionButton(s, a)
                 DownloadLine(s, a.pkg)
             }

@@ -459,7 +459,11 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Un
                             if ("macOS" in pl) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_apple), "macOS", tint = W, modifier = Modifier.size(26.dp))
                             if ("Linux" in pl) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_linux), "Linux", tint = W, modifier = Modifier.size(26.dp))
                             if (a.extra["android"] != null) Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_android), "Android", tint = W, modifier = Modifier.size(28.dp))
-                        } else Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_android), null, tint = W, modifier = Modifier.size(30.dp))
+                        } else {
+                            // the Android mark at the top right saves the APK itself to the Downloads folder
+                            val ctxA = LocalContext.current
+                            Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_android), t("APK olarak kaydet", "Save as APK"), tint = W, modifier = Modifier.size(30.dp).clip(RoundedCornerShape(6.dp)).clickable { s.saveApk(a, ctxA) })
+                        }
                     }
                 }
                 sizeText(a.apkSize).let { if (it.isNotBlank()) Text(t("Boyut: ", "Size: ") + it, color = Steam.link, fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp)) }
