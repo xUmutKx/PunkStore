@@ -2,6 +2,8 @@
 
 # Punk Store
 
+<p align="center"><a href="https://github.com/xUmutKx/PunkStore/releases/latest"><img src="docs/get-it-on-github.png" height="60" alt="Get it on GitHub"></a></p>
+
 **F-Droid, Google Play and Steam in one store.**
 
 I got tired of jumping between F-Droid, the Play Store and Steam every time I wanted to find something for my phone, so I made one store that has all three. It looks like the Steam mobile app, because I just like that interface.
