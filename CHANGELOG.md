@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.72
+- Licensed under the GNU General Public License v3.0 (LICENSE file, README section).
+
 ## 0.71
 - Six home-screen widgets in two looks: Steam (the store's dark blue) and Material (the phone's own Material You colours, light and dark). Three kinds in each: updates waiting, a downloads counter for my apps, and the list of my GitHub apps that have an APK release (name and the version of the latest release).
 - A GitHub Actions workflow builds the APK on every push and, from "Run workflow", publishes it as a release.

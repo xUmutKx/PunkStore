@@ -69,3 +69,9 @@ The APK ends up in `app/build/outputs/apk/release/`.
 ## Thanks
 
 This app wouldn't exist without [F-Droid](https://f-droid.org) and [Aurora Store](https://auroraoss.com). The logo font is Russo One (OFL).
+
+## License
+
+Punk Store is free software under the [GNU General Public License v3.0](LICENSE) (GPL-3.0). Copyright (C) 2026 UmutK.
+
+It uses [AuroraOSS/gplayapi](https://gitlab.com/AuroraOSS/gplayapi) for the Google Play source, which is also GPL-licensed, so the whole app is released under the same terms. Other libraries (AndroidX, Jetpack Compose, OkHttp, Coil, kotlinx) keep their own licenses.
