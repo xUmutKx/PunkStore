@@ -1,0 +1,48 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish this build as a GitHub release (tag v<versionName>)"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install SDK packages
+        run: |
+          SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin | tail -1)/sdkmanager
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Build release APK
+        shell: bash
+        run: set -o pipefail; gradle assembleRelease -Dorg.gradle.jvmargs='-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' --no-daemon 2>&1 | tee build.log
+      - name: Compile errors as annotations
+        if: failure()
+        run: |
+          grep -E '^e: |What went wrong|error:|AAPT|FAILED|Execution failed|Manifest merger' -A3 build.log | grep -v '^--$' | head -45 | while IFS= read -r line; do echo "::error::${line}"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: punkstore-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+      - name: Publish the release
+        if: github.event_name == 'workflow_dispatch' && inputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/release/app-release.apk "PunkStore-$VER.apk"
+          gh release create "v$VER" "PunkStore-$VER.apk" --target "$GITHUB_SHA" --title "Punk Store $VER" --notes "$(sed -n '/^## '"$VER"'/,/^## /p' CHANGELOG.md | sed '1d;$d')"

@@ -211,11 +211,11 @@ class Store(app: Application) : AndroidViewModel(app) {
             }
             runCatching { selfUpdate = Updater.checkSelf(ctx, installed[ctx.packageName] ?: 0L) }
             // my own apps on GitHub (Pulse and the rest) are looked at again too, so a new release shows as an update
-            runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }
+            runCatching { GitHubRepo.mine().also { PunkWidgets.save(ctx, it) }.forEach { ghMap[it.pkg] = it } }
             lastCheck = System.currentTimeMillis(); prefs.edit().putLong("lastCheck", lastCheck).apply()
             checking = false
             val n = updateCount + (if (selfUpdate != null) 1 else 0)
-            prefs.edit().putInt("updates_n", n).apply(); UpdatesWidget.refresh(ctx)
+            prefs.edit().putInt("updates_n", n).apply(); PunkWidgets.refresh(ctx)
             if (n > 0 && autoCheck && n != prefs.getInt("notified", 0)) { Updater.notify(ctx, n); prefs.edit().putInt("notified", n).apply() }
             if (n == 0) prefs.edit().putInt("notified", 0).apply()
         }

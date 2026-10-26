@@ -47,7 +47,7 @@ object AutoUpdate {
         // my apps on GitHub (Pulse and the others) that are installed and have a newer release; Punk Store itself goes last
         runCatching {
             val pkgName = c.packageName
-            GitHubRepo.mine().forEach { a ->
+            GitHubRepo.mine().also { PunkWidgets.save(c, it) }.forEach { a ->
                 val real = GitHubRepo.knownReal(a.pkg.removePrefix("gh:")) ?: prefs(c).getString("ghreal_${a.pkg}", null) ?: return@forEach
                 if (a.pkg in ignored || real in ignored || todo.any { it.pkg == a.pkg }) return@forEach
                 val cur = installed[real]?.let { runCatching { pm.getPackageInfo(real, 0).versionName }.getOrNull() } ?: return@forEach

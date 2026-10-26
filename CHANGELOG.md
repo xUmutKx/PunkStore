@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.71
+- Six home-screen widgets in two looks: Steam (the store's dark blue) and Material (the phone's own Material You colours, light and dark). Three kinds in each: updates waiting, a downloads counter for my apps, and the list of my GitHub apps that have an APK release (name and the version of the latest release).
+- A GitHub Actions workflow builds the APK on every push and, from "Run workflow", publishes it as a release.
+
 ## 0.70
 - Automatic updates are on by default, and they now cover my own GitHub apps too: Pulse, and Punk Store itself (last). Before, only the F-Droid and Google Play apps were updated in the background; a GitHub app showed no update at all because its version was never compared with the installed one.
 - Pulse (com.umutk.pulse) and Punk Store (com.punkstore.app) are known as installed, so they show "Update" when their latest GitHub release is newer, and they count in the updates number and the notification. The store looks at my GitHub apps again at every update check.

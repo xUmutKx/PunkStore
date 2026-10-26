@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="wm_surface">#ECE6F0</color>
+    <color name="wm_text">#1D1B20</color>
+    <color name="wm_sub">#49454F</color>
+    <color name="wm_accent">#6750A4</color>
+</resources>

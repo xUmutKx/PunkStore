@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wr_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="14dp" android:background="@drawable/widget_bg_steam">
+    <TextView android:id="@+id/wr_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="by UmutK" android:textColor="#66C0F4" android:textSize="12sp" android:textStyle="bold" android:singleLine="true" android:paddingBottom="4dp" />
+    <TextView android:id="@+id/wr_1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:textColor="#FFFFFF" android:textSize="13sp" android:singleLine="true" />
+    <TextView android:id="@+id/wr_2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:textColor="#FFFFFF" android:textSize="13sp" android:singleLine="true" />
+    <TextView android:id="@+id/wr_3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:textColor="#FFFFFF" android:textSize="13sp" android:singleLine="true" />
+    <TextView android:id="@+id/wr_4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:textColor="#FFFFFF" android:textSize="13sp" android:singleLine="true" />
+    <TextView android:id="@+id/wr_5" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:textColor="#FFFFFF" android:textSize="13sp" android:singleLine="true" />
+</LinearLayout>
