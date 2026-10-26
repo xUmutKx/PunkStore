@@ -19,6 +19,9 @@ import okhttp3.Request
 object Updater {
     const val RELEASES = "https://api.github.com/repos/xUmutKx/PunkStore/releases/latest"
 
+    /** True when version text [a] (a tag like v1.0.123) is newer than [b]. */
+    fun isNewer(a: String, b: String) = newer(ver(a), ver(b))
+
     private fun ver(s: String) = s.trimStart('v', 'V').split('.', '-').mapNotNull { it.toIntOrNull() }
     private fun newer(a: List<Int>, b: List<Int>): Boolean { for (i in 0 until maxOf(a.size, b.size)) { val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }; if (x != y) return x > y }; return false }
 

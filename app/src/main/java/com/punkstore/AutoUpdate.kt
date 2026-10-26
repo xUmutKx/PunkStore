@@ -19,7 +19,7 @@ import java.io.File
 object AutoUpdate {
     private const val JOB = 4201
     private fun prefs(c: Context) = c.getSharedPreferences("punk", Context.MODE_PRIVATE)
-    fun enabled(c: Context) = prefs(c).getBoolean("bgUpdate", false)
+    fun enabled(c: Context) = prefs(c).getBoolean("bgUpdate", true)
 
     fun apply(c: Context) {
         val js = c.getSystemService(JobScheduler::class.java)
@@ -34,6 +34,7 @@ object AutoUpdate {
     /** Katalogla karşılaştırıp kurulu ama eskimiş uygulamaları güncelle. */
     suspend fun run(c: Context) {
         val pm = c.packageManager
+        var selfLast: AppItem? = null
         val installed = pm.getInstalledPackages(0).associate { it.packageName to it.longVersionCode }
         val ignored = (prefs(c).getString("ignored", "") ?: "").split(',').toSet()
         val fd = FdroidRepo.cached(c).orEmpty()
@@ -43,6 +44,17 @@ object AutoUpdate {
             val rest = installed.keys.filter { k -> fd.none { it.pkg == k } && k !in ignored && !k.startsWith("com.android.") && !k.startsWith("android") && pm.getLaunchIntentForPackage(k) != null }
             rest.chunked(40).forEach { chunk -> PlayRepo.details(c, chunk).filter { (installed[it.pkg] ?: Long.MAX_VALUE) < it.versionCode && it.price.isBlank() }.let { todo.addAll(it) } }
         }
+        // my apps on GitHub (Pulse and the others) that are installed and have a newer release; Punk Store itself goes last
+        runCatching {
+            val pkgName = c.packageName
+            GitHubRepo.mine().forEach { a ->
+                val real = GitHubRepo.knownReal(a.pkg.removePrefix("gh:")) ?: prefs(c).getString("ghreal_${a.pkg}", null) ?: return@forEach
+                if (a.pkg in ignored || real in ignored || todo.any { it.pkg == a.pkg }) return@forEach
+                val cur = installed[real]?.let { runCatching { pm.getPackageInfo(real, 0).versionName }.getOrNull() } ?: return@forEach
+                if (Updater.isNewer(a.versionName, cur)) { if (real == pkgName) selfLast = a else todo.add(a) }
+            }
+        }
+        selfLast?.let { todo.add(it) }
         var done = 0
         todo.take(15).forEach { a -> if (runCatching { update(c, a) }.isSuccess) done++ }
         if (done > 0) DownloadService.done(c, "autoupdate", "Punk Store", null, t("$done uygulama arka planda güncellendi", "$done apps updated in the background"))

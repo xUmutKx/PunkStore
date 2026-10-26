@@ -190,7 +190,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     val tasteTop: List<String> get() = taste.entries.filter { it.value > 0 }.sortedByDescending { it.value }.take(5).map { it.key }
 
     // Güncelleme denetimi
-    val updateCount: Int get() = apps.count { isInstalled(it) && hasUpdate(it) }
+    val updateCount: Int get() = apps.count { isInstalled(it) && hasUpdate(it) } + ghMap.values.count { isInstalled(it) && hasUpdate(it) }
     var selfUpdate by mutableStateOf<AppItem?>(null); private set
     var checking by mutableStateOf(false); private set
     var lastCheck by mutableStateOf(prefs.getLong("lastCheck", 0L)); private set
@@ -210,9 +210,12 @@ class Store(app: Application) : AndroidViewModel(app) {
                 mine.chunked(40).forEach { addPlay(PlayRepo.details(ctx, it)) }
             }
             runCatching { selfUpdate = Updater.checkSelf(ctx, installed[ctx.packageName] ?: 0L) }
+            // my own apps on GitHub (Pulse and the rest) are looked at again too, so a new release shows as an update
+            runCatching { GitHubRepo.mine().forEach { ghMap[it.pkg] = it } }
             lastCheck = System.currentTimeMillis(); prefs.edit().putLong("lastCheck", lastCheck).apply()
             checking = false
             val n = updateCount + (if (selfUpdate != null) 1 else 0)
+            prefs.edit().putInt("updates_n", n).apply(); UpdatesWidget.refresh(ctx)
             if (n > 0 && autoCheck && n != prefs.getInt("notified", 0)) { Updater.notify(ctx, n); prefs.edit().putInt("notified", n).apply() }
             if (n == 0) prefs.edit().putInt("notified", 0).apply()
         }
@@ -469,7 +472,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     }
     var compactInstalled by mutableStateOf(prefs.getBoolean("compactInst", true)); private set
     fun changeCompactInstalled(v: Boolean) { compactInstalled = v; prefs.edit().putBoolean("compactInst", v).apply() }
-    var bgUpdate by mutableStateOf(prefs.getBoolean("bgUpdate", false)); private set
+    var bgUpdate by mutableStateOf(prefs.getBoolean("bgUpdate", true)); private set
     fun changeBgUpdate(v: Boolean) { bgUpdate = v; prefs.edit().putBoolean("bgUpdate", v).apply(); AutoUpdate.apply(getApplication()) }
     var showSystem by mutableStateOf(prefs.getBoolean("showSystem", false)); private set
     fun changeShowSystem(v: Boolean) { showSystem = v; prefs.edit().putBoolean("showSystem", v).apply() }
@@ -677,10 +680,17 @@ class Store(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun ghReal(pkg: String): String = if (pkg.startsWith("gh:")) prefs.getString("ghreal_$pkg", null) ?: pkg else pkg
+    fun ghReal(pkg: String): String = if (pkg.startsWith("gh:")) prefs.getString("ghreal_$pkg", null) ?: GitHubRepo.knownReal(pkg.removePrefix("gh:")) ?: pkg else pkg
     fun setGhReal(pkg: String, real: String) { prefs.edit().putString("ghreal_$pkg", real).apply() }
     fun isInstalled(a: AppItem) = installed.containsKey(a.pkg) || installed.containsKey(ghReal(a.pkg))
-    fun hasUpdate(a: AppItem) = a.pkg !in ignored && installed[a.pkg]?.let { it < a.versionCode } == true
+    fun hasUpdate(a: AppItem) = a.pkg !in ignored && (installed[a.pkg]?.let { it < a.versionCode } == true || ghUpdate(a))
+    /** A GitHub app (mine included: Pulse) that is installed and whose latest release tag is newer than the installed version name. Punk Store itself is handled by selfUpdate. */
+    private fun ghUpdate(a: AppItem): Boolean {
+        if (a.source != "GITHUB") return false
+        val real = ghReal(a.pkg)
+        if (real.startsWith("gh:") || real == getApplication<Application>().packageName || !installed.containsKey(real)) return false
+        return runCatching { Updater.isNewer(a.versionName, getApplication<Application>().packageManager.getPackageInfo(real, 0).versionName.orEmpty()) }.getOrDefault(false)
+    }
     fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg] ?: ghMap[pkg]
     /** Bilinen her kaynaktan (katalog, kayıtlı, cihaz) */
     fun anyPkg(pkg: String) = byPkg(pkg) ?: resolve(pkg) ?: localApps.firstOrNull { it.pkg == pkg } ?: steamOwned.firstOrNull { it.pkg == pkg }

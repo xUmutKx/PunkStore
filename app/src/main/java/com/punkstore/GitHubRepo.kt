@@ -63,8 +63,14 @@ object GitHubRepo {
 
     private fun JsonElement?.s(k: String) = (this as? JsonObject)?.get(k)?.jsonPrimitive?.contentOrNull.orEmpty()
 
+    /** The package names of my own apps, so the store knows they are installed and when they are old without having to be told once. */
+    private val known = mapOf("xumutkx/pulse" to "com.umutk.pulse", "xumutkx/punkstore" to "com.punkstore.app")
+    fun knownReal(full: String): String? = known[full.lowercase()]
+
     private fun pickApk(assets: JsonArray): JsonObject? {
-        val apks = assets.map { it.jsonObject }.filter { it.s("name").endsWith(".apk", true) }
+        val all = assets.map { it.jsonObject }.filter { it.s("name").endsWith(".apk", true) }
+        // a release with an "android5" file next to the normal one: Android 12 and up take the normal one, older phones the android5 one
+        val apks = all.filter { it.s("name").contains("android5", true) == (android.os.Build.VERSION.SDK_INT < 31) }.ifEmpty { all }
         val abis = android.os.Build.SUPPORTED_ABIS.map { it.replace('-', '_').lowercase() }
         val abiTokens = listOf("arm64_v8a", "arm64", "armeabi_v7a", "armeabi", "x86_64", "x86")
         fun norm(n: String) = n.lowercase().replace('-', '_')

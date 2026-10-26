@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.70
+- Automatic updates are on by default, and they now cover my own GitHub apps too: Pulse, and Punk Store itself (last). Before, only the F-Droid and Google Play apps were updated in the background; a GitHub app showed no update at all because its version was never compared with the installed one.
+- Pulse (com.umutk.pulse) and Punk Store (com.punkstore.app) are known as installed, so they show "Update" when their latest GitHub release is newer, and they count in the updates number and the notification. The store looks at my GitHub apps again at every update check.
+- Pulse's release has two files (normal and android5): Android 12 and up take the normal one, older phones the android5 one.
+- A home-screen widget (2x2): how many updates wait and when the store last looked; a tap opens the store.
+
 ## 0.69
 - The Google sign-in no longer drops by itself. The saved Google account was deleted whenever one sign-in attempt failed for any reason (no network, a timeout, a busy server) and Pulse fell back to the anonymous session for good; now it is deleted only when Google clearly rejects it (bad authentication, account disabled). A failed attempt is tried three times, then the store goes on anonymously for that request and tries Google again the next time.
 - The short-lived Play session is made again from the long-lived token each time, and a session saved in the last 6 hours is used without checking it first, so the lists load faster. A signed-in account is also brought up in the background when the store starts.
