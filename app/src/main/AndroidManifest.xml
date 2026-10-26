@@ -30,27 +30,27 @@
         <receiver android:name=".InstallReceiver" android:exported="false" />
         <receiver android:name=".UpdatesWidget" android:exported="false" android:label="Punk Store Updates · Steam">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_updates_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_updates_steam_info" />
         </receiver>
         <receiver android:name=".UpdatesMaterialWidget" android:exported="false" android:label="Punk Store Updates · Material">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_updates_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_updates_material_info" />
         </receiver>
         <receiver android:name=".DownloadsWidget" android:exported="false" android:label="Punk Store Downloads · Steam">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_downloads_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_downloads_steam_info" />
         </receiver>
         <receiver android:name=".DownloadsMaterialWidget" android:exported="false" android:label="Punk Store Downloads · Material">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_downloads_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_downloads_material_info" />
         </receiver>
         <receiver android:name=".ReposWidget" android:exported="false" android:label="Punk Store My apps · Steam">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_repos_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_repos_steam_info" />
         </receiver>
         <receiver android:name=".ReposMaterialWidget" android:exported="false" android:label="Punk Store My apps · Material">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_repos_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_repos_material_info" />
         </receiver>
         <receiver android:name=".DlActionReceiver" android:exported="false" />
     </application>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.73
+- Search gives hundreds of results, not ten: the Steam store is read page by page (150 games) and Google Play's search follows its next pages (up to six pages). A search for "love" used to end at ten Steam games.
+- Widgets: every widget has a preview in the widget picker (Steam and Material, with sample data). The apps widget is a list: the picture of the app, its name and version, and whether it is installed or has an update. The downloads widget no longer says "by UmutK".
+
 ## 0.72
 - Licensed under the GNU General Public License v3.0 (LICENSE file, README section).
 

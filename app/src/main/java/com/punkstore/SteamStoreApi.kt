@@ -38,7 +38,34 @@ object SteamStoreApi {
         mapOf("specials" to list("specials"), "top" to list("top_sellers"), "new" to list("new_releases"), "soon" to list("coming_soon", true))
     }
 
-    suspend fun search(q: String): List<AppItem> = withContext(Dispatchers.IO) {
+    /** The store's own search page as data: 50 games a page, three pages (storesearch gives only ten). The names, the ids and the pictures; the price comes when a game is opened. */
+    private suspend fun searchPages(q: String): List<AppItem> = withContext(Dispatchers.IO) {
+        val out = ArrayList<AppItem>()
+        for (start in listOf(0, 50, 100)) {
+            val d = runCatching { get("https://store.steampowered.com/search/results/?term=${java.net.URLEncoder.encode(q, "UTF-8")}&start=$start&count=50&json=1&l=$lang&cc=${if (I18n.isTr) "TR" else "US"}&infinite=1") }.getOrNull() ?: break
+            val items = d["items"]?.jsonArray.orEmpty()
+            if (items.isEmpty()) break
+            items.map { it.jsonObject }.forEach { o ->
+                val name = o["name"]?.jsonPrimitive?.contentOrNull ?: return@forEach
+                val id = Regex("/(?:apps|sub|bundles)/(\\d+)/").find(o["logo"]?.jsonPrimitive?.contentOrNull.orEmpty())?.groupValues?.get(1)?.toLongOrNull() ?: return@forEach
+                out += AppItem(pkg = "steam:$id", name = name, source = "STEAM",
+                    banner = "https://cdn.cloudflare.steamstatic.com/steam/apps/$id/header.jpg",
+                    icon = "https://cdn.cloudflare.steamstatic.com/steam/apps/$id/library_600x900.jpg",
+                    web = "https://store.steampowered.com/app/$id", categories = listOf("Steam"))
+            }
+            if (items.size < 40) break
+        }
+        out
+    }
+
+    suspend fun search(q: String): List<AppItem> {
+        val quick = runCatching { searchTen(q) }.getOrDefault(emptyList())
+        val more = runCatching { searchPages(q) }.getOrDefault(emptyList())
+        // the ten with prices first, then the rest of the pages
+        return (quick + more).distinctBy { it.pkg }
+    }
+
+    private suspend fun searchTen(q: String): List<AppItem> = withContext(Dispatchers.IO) {
         val d = get("https://store.steampowered.com/api/storesearch/?term=${java.net.URLEncoder.encode(q, "UTF-8")}&l=$lang&cc=${if (I18n.isTr) "TR" else "US"}")
         d["items"]?.jsonArray.orEmpty().map { it.jsonObject }.mapNotNull { o ->
             val id = o["id"]?.jsonPrimitive?.long ?: return@mapNotNull null

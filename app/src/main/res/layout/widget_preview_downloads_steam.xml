@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:gravity="center_vertical" android:padding="14dp" android:background="@drawable/widget_bg_steam">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Downloads" android:textColor="#66C0F4" android:textSize="12sp" android:singleLine="true" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="1,284" android:textColor="#FFFFFF" android:textSize="34sp" android:textStyle="bold" android:singleLine="true" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="apps of mine" android:textColor="#8F98A0" android:textSize="12sp" android:singleLine="true" />
+</LinearLayout>

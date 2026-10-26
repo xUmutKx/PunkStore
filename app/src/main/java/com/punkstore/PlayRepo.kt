@@ -152,8 +152,18 @@ object PlayRepo {
     )
 
     suspend fun search(c: Context, q: String): List<AppItem> = withAuth(c) { au ->
-        val b = SearchHelper(au).using(client).searchResults(q, "")
-        b.streamClusters.values.flatMap { it.clusterAppList }.distinctBy { it.packageName }.map(::toItem)
+        val helper = SearchHelper(au).using(client)
+        var bundle = helper.searchResults(q, "")
+        val all = ArrayList(bundle.streamClusters.values.flatMap { it.clusterAppList })
+        // more pages: the first page holds about twenty apps, a search for a word like "love" has hundreds
+        runCatching {
+            repeat(5) {
+                if (bundle.subBundles.isEmpty()) return@runCatching
+                bundle = helper.next(bundle.subBundles)
+                all += bundle.streamClusters.values.flatMap { it.clusterAppList }
+            }
+        }
+        all.distinctBy { it.packageName }.map(::toItem)
     }
 
     suspend fun chart(c: Context, games: Boolean, chart: TopChartsContract.Chart = TopChartsContract.Chart.TOP_SELLING_FREE): List<AppItem> = withAuth(c) { au ->

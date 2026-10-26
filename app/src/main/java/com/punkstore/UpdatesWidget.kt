@@ -33,10 +33,31 @@ object PunkWidgets {
     /** Keeps what the widgets show: how many downloads my GitHub apps have, and their names with the version of the latest release. */
     fun save(c: Context, mine: List<AppItem>) {
         val dl = mine.sumOf { a -> a.installs.filter { it.isDigit() }.toLongOrNull() ?: 0L }
+        val pm = c.packageManager
+        // "ok" installed and current, "update" installed and older, "not" a known app that is not installed, "" a repo whose package name is not known
+        fun state(a: AppItem): String {
+            val real = GitHubRepo.knownReal(a.pkg.removePrefix("gh:")) ?: p(c).getString("ghreal_${a.pkg}", null) ?: return ""
+            val cur = runCatching { pm.getPackageInfo(real, 0).versionName }.getOrNull() ?: return "not"
+            return if (Updater.isNewer(a.versionName, cur.orEmpty())) "update" else "ok"
+        }
         p(c).edit().putLong("gh_downloads", dl).putInt("gh_apps", mine.size)
-            .putString("gh_list", mine.sortedByDescending { it.updated }.joinToString("\n") { it.name + "\t" + it.versionName }).apply()
+            .putString("gh_list", mine.sortedByDescending { it.updated }.joinToString("\n") { it.name + "\t" + it.versionName + "\t" + state(it) }).apply()
         refresh(c)
+        // the picture of the apps (the owner's avatar, as the store itself shows them) is fetched once, then the widgets are drawn again with it
+        Thread { if (ensureIcon(c)) refresh(c) }.start()
     }
+
+    private fun iconFile(c: Context) = java.io.File(c.filesDir, "widget_icon.png")
+    private fun ensureIcon(c: Context): Boolean = runCatching {
+        val f = iconFile(c)
+        if (f.isFile && System.currentTimeMillis() - f.lastModified() < 7 * 86_400_000L) return false
+        http.newCall(okhttp3.Request.Builder().url("https://github.com/${GitHubRepo.OWNER}.png?size=96").build()).execute().use { r ->
+            if (!r.isSuccessful) return false
+            f.writeBytes(r.body!!.bytes()); true
+        }
+    }.getOrDefault(false)
+
+    private fun icon(c: Context): android.graphics.Bitmap? = runCatching { iconFile(c).takeIf { it.isFile }?.let { android.graphics.BitmapFactory.decodeFile(it.path) } }.getOrNull()
 
     private fun open(c: Context) = PendingIntent.getActivity(c, 0, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
@@ -50,12 +71,22 @@ object PunkWidgets {
             val v = RemoteViews(c.packageName, R.layout.widget_repos)
             v.setInt(R.id.wr_root, "setBackgroundResource", bg)
             v.setTextColor(R.id.wr_title, accent)
-            v.setTextViewText(R.id.wr_title, "by UmutK")
+            v.setTextViewText(R.id.wr_title, "Punk Store")
             val rows = (sp.getString("gh_list", "") ?: "").lines().filter { it.isNotBlank() }
-            intArrayOf(R.id.wr_1, R.id.wr_2, R.id.wr_3, R.id.wr_4, R.id.wr_5).forEachIndexed { i, id ->
+            val pic = icon(c)
+            val ok = if (material) accent else 0xFF5BA32B.toInt()
+            val names = intArrayOf(R.id.wr_n1, R.id.wr_n2, R.id.wr_n3, R.id.wr_n4, R.id.wr_n5)
+            val icons = intArrayOf(R.id.wr_i1, R.id.wr_i2, R.id.wr_i3, R.id.wr_i4, R.id.wr_i5)
+            val states = intArrayOf(R.id.wr_s1, R.id.wr_s2, R.id.wr_s3, R.id.wr_s4, R.id.wr_s5)
+            names.indices.forEach { i ->
                 val r = rows.getOrNull(i)?.split('\t')
-                v.setTextColor(id, text)
-                v.setTextViewText(id, if (r == null) (if (i == 0) t("Henüz bir şey yok", "Nothing yet") else "") else r[0] + "   " + r.getOrElse(1) { "" })
+                v.setTextColor(names[i], text)
+                v.setTextViewText(names[i], if (r == null) (if (i == 0) t("Henüz bir şey yok", "Nothing yet") else "") else r[0] + "  " + r.getOrElse(1) { "" })
+                v.setViewVisibility(icons[i], if (r != null && pic != null) android.view.View.VISIBLE else android.view.View.GONE)
+                if (r != null && pic != null) v.setImageViewBitmap(icons[i], pic)
+                val st = r?.getOrNull(2).orEmpty()
+                v.setTextViewText(states[i], when (st) { "ok" -> "✓ " + t("kurulu", "installed"); "update" -> t("güncelle", "update"); "not" -> t("kurulu değil", "not installed"); else -> "" })
+                v.setTextColor(states[i], when (st) { "ok" -> ok; "update" -> 0xFFE8A33D.toInt(); else -> sub })
             }
             v.setOnClickPendingIntent(R.id.wr_root, open(c))
             return v
@@ -64,9 +95,9 @@ object PunkWidgets {
         v.setInt(R.id.wu_root, "setBackgroundResource", bg)
         v.setTextColor(R.id.wu_title, accent); v.setTextColor(R.id.wu_count, text); v.setTextColor(R.id.wu_sub, sub)
         if (kind == "downloads") {
-            v.setTextViewText(R.id.wu_title, "by UmutK")
+            v.setTextViewText(R.id.wu_title, t("İndirme", "Downloads"))
             v.setTextViewText(R.id.wu_count, java.text.NumberFormat.getInstance().format(sp.getLong("gh_downloads", 0L)))
-            v.setTextViewText(R.id.wu_sub, t("indirme · ${sp.getInt("gh_apps", 0)} uygulama", "downloads · ${sp.getInt("gh_apps", 0)} apps"))
+            v.setTextViewText(R.id.wu_sub, t("${sp.getInt("gh_apps", 0)} uygulamam", "across ${sp.getInt("gh_apps", 0)} apps"))
         } else {
             val n = sp.getInt("updates_n", 0)
             val last = sp.getLong("lastCheck", 0L)
