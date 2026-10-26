@@ -521,6 +521,8 @@ class Store(app: Application) : AndroidViewModel(app) {
 
     init {
         PlayRepo.customDispenser = dispenser
+        // a signed-in Google account is brought up in the background at start, so the first Play list does not wait for the sign-in
+        viewModelScope.launch(Dispatchers.IO) { if (PlayRepo.googleEmail(app) != null) runCatching { PlayRepo.session(app) } }
         Steam.pal = palFor(design); Steam.material = !design.steam
         I18n.pref = runCatching { LangPref.valueOf(prefs.getString("lang", "EN")!!) }.getOrDefault(LangPref.EN)
         // the big catalogue cache is read off the main thread so the first screen shows at once

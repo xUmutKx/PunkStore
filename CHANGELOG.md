@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.69
+- The Google sign-in no longer drops by itself. The saved Google account was deleted whenever one sign-in attempt failed for any reason (no network, a timeout, a busy server) and Pulse fell back to the anonymous session for good; now it is deleted only when Google clearly rejects it (bad authentication, account disabled). A failed attempt is tried three times, then the store goes on anonymously for that request and tries Google again the next time.
+- The short-lived Play session is made again from the long-lived token each time, and a session saved in the last 6 hours is used without checking it first, so the lists load faster. A signed-in account is also brought up in the background when the store starts.
+
 ## 0.50
 - "by UmutK" now lists every app of mine that has a release, and each one opens like any other app: install, update, open. Apps without a release still show their README card.
 - Names are right: Claude Chat, Punk Store, Mega Games, instead of the repository names.

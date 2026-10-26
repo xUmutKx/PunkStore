@@ -61,19 +61,42 @@ object PlayRepo {
         val f = File(c.filesDir, "play-auth.json")
         if (f.exists()) runCatching {
             val a = json.decodeFromString(AuthData.serializer(), f.readText())
-            if (AuthHelper.isValid(a)) { auth = a; return@withContext a }
+            // yeni kaydedilmiş oturum doğrulanmadan kullanılır (açılış hızlı olsun); bozuksa withAuth bir kez yenileyip tekrar dener. Eskiyse önce doğrulanır
+            if (System.currentTimeMillis() - f.lastModified() < 6 * 3600_000L || AuthHelper.isValid(a)) { auth = a; return@withContext a }
         }
         val g = googleCreds(c)
         fun anon(): AuthData { val (email, token) = fetchDispenserToken(); return AuthHelper.using(client).build(email, token, AuthHelper.Token.AUTH, true, deviceProps(c), Locale.getDefault()) }
-        val a = if (g != null) try { AuthHelper.using(client).build(g.first, g.second, AuthHelper.Token.AAS, false, deviceProps(c), Locale.getDefault()) } catch (e: Throwable) {
-            // Google belirteci reddedildi (BadAuth): kayıtlı hesabı sil, anonim oturumla devam et
-            File(c.filesDir, "play-google.txt").delete()
-            authNote = t("Google hesabı reddedildi (${e.message?.take(60) ?: "BadAuth"}); anonim oturumla devam ediliyor. Ayarlar'dan tekrar giriş yapabilirsin.", "Google rejected the account (${e.message?.take(60) ?: "BadAuth"}); continuing anonymously. You can sign in again from Settings.")
-            anon()
-        } else anon()
+        if (g != null) {
+            // Google oturumu hiçbir zaman kendiliğinden kapanmaz: AAS belirteci uzun ömürlüdür, kısa ömürlü oturum her seferinde ondan yeniden üretilir.
+            // Ağ hatası, zaman aşımı, 429 gibi geçici sorunlarda belirteç SİLİNMEZ; birkaç kez denenir, olmazsa bu sefer anonim devam edilir ve bir sonrakinde yine Google denenir.
+            var last: Throwable? = null
+            repeat(3) { n ->
+                try {
+                    val a = AuthHelper.using(client).build(g.first, g.second, AuthHelper.Token.AAS, false, deviceProps(c), Locale.getDefault())
+                    runCatching { f.writeText(json.encodeToString(AuthData.serializer(), a)) }
+                    auth = a; authNote = null
+                    return@withContext a
+                } catch (e: Throwable) { last = e; if (isRejected(e)) return@repeat; Thread.sleep(500L * (n + 1)) }
+            }
+            val e = last
+            if (e != null && isRejected(e)) {
+                // yalnız Google belirteci açıkça reddedince (şifre değişti, hesap kilitlendi) kayıtlı hesap silinir
+                File(c.filesDir, "play-google.txt").delete()
+                authNote = t("Google hesabı reddedildi (${e.message?.take(60) ?: "BadAuth"}); anonim oturumla devam ediliyor. Ayarlar'dan tekrar giriş yapabilirsin.", "Google rejected the account (${e.message?.take(60) ?: "BadAuth"}); continuing anonymously. You can sign in again from Settings.")
+            } else authNote = t("Google'a şu an ulaşılamadı; hesabın korundu, anonim devam ediliyor.", "Google could not be reached right now; your account is kept, continuing anonymously.")
+            // anonim oturum kaydedilmez ve önbelleğe alınmaz: sonraki istekte yine Google hesabı denenir
+            return@withContext anon()
+        }
+        val a = anon()
         runCatching { f.writeText(json.encodeToString(AuthData.serializer(), a)) }
         auth = a
         a
+    }
+
+    /** Google'ın belirteci açıkça reddettiği hatalar; ağ ve geçici hatalar bunun dışındadır. */
+    private fun isRejected(e: Throwable): Boolean {
+        val m = (e.message ?: "") + (e.cause?.message ?: "")
+        return listOf("BadAuthentication", "BadAuth", "NeedsBrowser", "AccountDeleted", "AccountDisabled", "DeviceManagementRequiredOrSyncDisabled").any { m.contains(it, true) }
     }
 
     /** Google hesabı girişi: (e-posta, AAS belirteci) — yoksa anonim oturum kullanılır. */
