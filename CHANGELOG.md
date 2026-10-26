@@ -1,7 +1,11 @@
 # Changelog
 
+## 0.74
+- Google Play downloads are as small as Play's own: only the splits of this screen's density and of the phone's languages are fetched (every density and every language used to come down).
+- A small Android button to the left of every Get / Update button saves the app as a file in the Downloads folder instead of installing it (one APK as it is, an app with splits as a `.apks` zip).
+
 ## 0.73
-- Search gives hundreds of results, not ten: the Steam store is read page by page (150 games) and Google Play's search follows its next pages (up to six pages). A search for "love" used to end at ten Steam games.
+- Search gives hundreds of results, not ten: the Steam store is read page by page (150 games) and Google Play's search is asked five ways (as is, app, game, free, pro). A search for "love" used to end at ten Steam games.
 - Widgets: every widget has a preview in the widget picker (Steam and Material, with sample data). The apps widget is a list: the picture of the app, its name and version, and whether it is installed or has an update. The downloads widget no longer says "by UmutK".
 
 ## 0.72

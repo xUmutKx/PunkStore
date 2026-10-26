@@ -703,6 +703,13 @@ class Store(app: Application) : AndroidViewModel(app) {
         remember(a)
         dl.enqueue(a)
     }
+    /** The APK itself (several as a .apks zip) goes to the Downloads folder; nothing is installed. */
+    fun saveApk(a: AppItem, ctx: Context) {
+        dl[a.pkg]?.let { if (it.active) return }
+        if (Cfg.wifiOnly(ctx) && !Cfg.wifiOk(ctx)) { error = t("Yalnızca Wi-Fi'de indirme açık", "Wi-Fi only downloads is on"); return }
+        remember(a)
+        dl.enqueue(a, save = true)
+    }
     fun report(msg: String) { error = msg }
     /** Kurulum bitti: kütüphaneye ekle (Steam gibi), geçmiş, istatistik. */
     fun onInstalled(a: AppItem) {

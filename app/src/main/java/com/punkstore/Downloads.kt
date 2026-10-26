@@ -62,6 +62,9 @@ class DownloadQueue(private val s: Store) {
     val tasks = mutableStateMapOf<String, DlTask>()
     private val jobs = mutableMapOf<String, Job>()
     private val cancelled = mutableSetOf<String>()
+    /** Apps asked for as a file in Downloads (not installed). */
+    private val saveOnly = mutableSetOf<String>()
+    fun wasSave(pkg: String) = synchronized(saveOnly) { pkg in saveOnly }
     private val sem = Semaphore(2)
     private val ctx: Context get() = s.getApplication()
     private val prefs get() = ctx.getSharedPreferences("punk", Context.MODE_PRIVATE)
@@ -78,9 +81,10 @@ class DownloadQueue(private val s: Store) {
     private fun upd(pkg: String, f: (DlTask) -> DlTask) { if (synchronized(cancelled) { pkg in cancelled }) return; tasks[pkg]?.let { put(f(it)) } }
 
     /** Kuyruğa al (zaten sürüyorsa bir şey yapmaz; duraklatılmış / hatalıysa devam ettirir). */
-    fun enqueue(a: AppItem) {
+    fun enqueue(a: AppItem, save: Boolean = false) {
         val cur = tasks[a.pkg]
         if (cur != null && cur.active) return
+        synchronized(saveOnly) { if (save) saveOnly.add(a.pkg) else saveOnly.remove(a.pkg) }
         synchronized(cancelled) { cancelled.remove(a.pkg) }
         put(DlTask(a.pkg, a.name, a.icon, a.source, DlState.QUEUED, cur?.bytes ?: 0, cur?.total ?: a.apkSize))
         persist()
@@ -171,6 +175,17 @@ class DownloadQueue(private val s: Store) {
         }
 
         check(abiOk(out)) { noAbi() }
+        if (wasSave(a.pkg)) {
+            // only the file is wanted: it goes to the Downloads folder (one APK as it is, several as a .apks zip) and nothing is installed
+            val where = withContext(Dispatchers.IO) { exportToDownloads(ctx, a, out) }
+            withContext(Dispatchers.IO) { dir.parentFile?.deleteRecursively() }
+            tasks[a.pkg]?.let { put(it.copy(state = DlState.DONE, speed = 0)) }
+            s.report(t("${a.name}: Downloads klasörüne kaydedildi ($where)", "${a.name}: saved to Downloads ($where)"))
+            DownloadService.done(ctx, a.pkg, a.name, null)
+            delay(4000)
+            if (tasks[a.pkg]?.state == DlState.DONE) tasks.remove(a.pkg)
+            return
+        }
         // GitHub sürümlerinde paket adı bilinmez: indirilen APK'dan okunup eşlenir (kurulu durumu için)
         if (a.pkg.startsWith("gh:")) runCatching { ctx.packageManager.getPackageArchiveInfo(out.first().path, 0)?.packageName }.getOrNull()?.let { s.setGhReal(a.pkg, it) }
         upd(a.pkg) { it.copy(state = DlState.INSTALLING) }
@@ -191,6 +206,56 @@ class DownloadQueue(private val s: Store) {
         if (tasks[a.pkg]?.state == DlState.DONE) tasks.remove(a.pkg)
     }
 
+    /**
+     * What Play itself puts on a phone: the splits of this screen's density and of the phone's languages only. Without this every density and
+     * every language came down, and the download was far larger than the one from Play.
+     */
+    private fun lean(c: Context, l: List<com.aurora.gplayapi.data.models.PlayFile>): List<com.aurora.gplayapi.data.models.PlayFile> {
+        val dens = listOf("ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")
+        val dpi = c.resources.displayMetrics.densityDpi
+        val want = when { dpi <= 120 -> "ldpi"; dpi <= 160 -> "mdpi"; dpi <= 213 -> "tvdpi"; dpi <= 240 -> "hdpi"; dpi <= 320 -> "xhdpi"; dpi <= 480 -> "xxhdpi"; else -> "xxxhdpi" }
+        val densRe = Regex("(?<![a-z0-9])(" + dens.joinToString("|") + ")(?![a-z0-9])", RegexOption.IGNORE_CASE)
+        val langs = buildSet {
+            val ll = c.resources.configuration.locales
+            for (i in 0 until ll.size()) add(ll[i].language.lowercase())
+            add("en")
+        }
+        val langRe = Regex("config\\.([a-z]{2,3})(?:[_-][A-Za-z0-9]{2,4})?(?![A-Za-z0-9_])")
+        val withDensity = l.filter { densRe.containsMatchIn(it.name) }
+        val keepDensity = if (withDensity.isEmpty()) null else (withDensity.firstOrNull { densRe.find(it.name)?.value.equals(want, true) }?.let { densRe.find(it.name)!!.value.lowercase() }
+            ?: withDensity.mapNotNull { densRe.find(it.name)?.value?.lowercase() }.minByOrNull { Math.abs(dens.indexOf(it) - dens.indexOf(want)) })
+        val out = l.filter { f ->
+            val d = densRe.find(f.name)?.value?.lowercase()
+            if (d != null) return@filter d == keepDensity
+            val lg = langRe.find(f.name.lowercase())?.groupValues?.get(1)
+            lg == null || lg in langs
+        }
+        return if (out.any { it.type == com.aurora.gplayapi.data.models.PlayFile.Type.BASE }) out else l
+    }
+
+    private fun exportToDownloads(c: Context, a: AppItem, files: List<File>): String {
+        val base = (a.name.replace(Regex("[^A-Za-z0-9._ -]"), "_").trim().ifBlank { a.pkg } + "-" + a.versionName.replace(Regex("[^A-Za-z0-9._-]"), "_")).trim('-')
+        val single = files.size == 1
+        val fname = base + if (single) ".apk" else ".apks"
+        val mime = if (single) "application/vnd.android.package-archive" else "application/octet-stream"
+        val cv = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fname); put(android.provider.MediaStore.Downloads.MIME_TYPE, mime)
+            if (android.os.Build.VERSION.SDK_INT >= 29) put(android.provider.MediaStore.Downloads.RELATIVE_PATH, "Download/")
+        }
+        fun write(os: java.io.OutputStream) {
+            if (single) files[0].inputStream().use { it.copyTo(os) }
+            else java.util.zip.ZipOutputStream(os).use { z -> files.forEachIndexed { i, f -> z.putNextEntry(java.util.zip.ZipEntry(if (i == 0) "base.apk" else f.name.substringAfter('-'))); f.inputStream().use { it.copyTo(z) }; z.closeEntry() } }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val uri = c.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv) ?: error("MediaStore")
+            c.contentResolver.openOutputStream(uri)!!.use { write(it) }
+        } else {
+            val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).apply { mkdirs() }
+            File(dir, fname).outputStream().use { write(it) }
+        }
+        return fname
+    }
+
     private fun fileFor(dir: File, i: Int, f: DlFile) = File(dir, "$i-${f.name.ifBlank { "base" }.replace('/', '_').removeSuffix(".apk")}.apk")
 
     private suspend fun resolveFiles(a: AppItem): List<DlFile> = if (a.source == "PLAY") {
@@ -199,6 +264,7 @@ class DownloadQueue(private val s: Store) {
         val l = PlayRepo.files(ctx, a)
             .filter { it.type == com.aurora.gplayapi.data.models.PlayFile.Type.BASE || it.type == com.aurora.gplayapi.data.models.PlayFile.Type.SPLIT }
             .filter { f -> val m = abiRe.find(f.name)?.value?.lowercase(); m == null || m in abis }
+            .let { lean(ctx, it) }
         check(l.isNotEmpty()) { t("İndirilebilir dosya yok (ücretli ya da bölgeye kapalı olabilir)", "Nothing to download (may be paid or region-locked)") }
         l.map { DlFile(it.url, it.name, it.size, it.sha256) }
     } else {

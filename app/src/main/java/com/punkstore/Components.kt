@@ -91,6 +91,21 @@ fun Modifier.pressScale(onClick: () -> Unit, enabled: Boolean = true, onLongClic
 @Composable
 fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: Boolean = false) {
     val ctx = LocalContext.current
+    val canFile = a.source != "STEAM" && a.source != "LOCAL" && s.dl[a.pkg]?.active != true
+    if (!canFile) { ActionButtonCore(s, a, modifier, compact); return }
+    // the little APK button at its left: the file goes straight to the Downloads folder
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(if (compact) 34.dp else 44.dp).clip(RoundedCornerShape(if (s.design.steam) 2.dp else 12.dp)).background(if (s.design.steam) Steam.panel2 else MaterialTheme.colorScheme.surfaceVariant).pressScale({ s.saveApk(a, ctx) }), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Android, t("APK olarak kaydet", "Save as APK"), tint = if (s.design.steam) Steam.text else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(if (compact) 18.dp else 22.dp))
+        }
+        Spacer(Modifier.width(6.dp))
+        ActionButtonCore(s, a, modifier, compact)
+    }
+}
+
+@Composable
+private fun ActionButtonCore(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: Boolean = false) {
+    val ctx = LocalContext.current
     val task = s.dl[a.pkg]
     val inst = s.isInstalled(a)
     val upd = s.hasUpdate(a)
@@ -104,7 +119,7 @@ fun ActionButton(s: Store, a: AppItem, modifier: Modifier = Modifier, compact: B
         st == DlState.INSTALLING -> t("Kuruluyor…", "Installing…")
         st == DlState.PAUSED -> t("Devam  ", "Resume  ") + "%${(task.progress * 100).toInt()}"
         st == DlState.FAILED -> t("Tekrar dene", "Retry")
-        st == DlState.DONE -> "✓ " + t("Kuruldu", "Installed")
+        st == DlState.DONE -> "✓ " + if (s.dl.wasSave(a.pkg)) t("İndirildi", "Saved") else t("Kuruldu", "Installed")
         upd -> t("Güncelle", "Update")
         inst -> if (a.categories.any { it.contains("Game", true) }) t("Oyna", "Play") else t("Aç", "Open")
         else -> if (compact) t("Yükle", "Get") else t("Yükle", "Get") + "  ${sizeText(a.apkSize)}"
