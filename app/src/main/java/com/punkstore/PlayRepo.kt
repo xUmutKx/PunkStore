@@ -153,15 +153,10 @@ object PlayRepo {
 
     suspend fun search(c: Context, q: String): List<AppItem> = withAuth(c) { au ->
         val helper = SearchHelper(au).using(client)
-        var bundle = helper.searchResults(q, "")
-        val all = ArrayList(bundle.streamClusters.values.flatMap { it.clusterAppList })
-        // more pages: the first page holds about twenty apps, a search for a word like "love" has hundreds
-        runCatching {
-            repeat(5) {
-                if (bundle.subBundles.isEmpty()) return@runCatching
-                bundle = helper.next(bundle.subBundles)
-                all += bundle.streamClusters.values.flatMap { it.clusterAppList }
-            }
+        // one page holds about twenty apps: the same word asked a few ways (as it is, as an app, as a game, free) brings in the rest
+        val all = ArrayList<com.aurora.gplayapi.data.models.App>()
+        for (variant in listOf(q, "$q app", "$q game", "$q free", "$q pro")) runCatching {
+            all += helper.searchResults(variant, "").streamClusters.values.flatMap { it.clusterAppList }
         }
         all.distinctBy { it.packageName }.map(::toItem)
     }
