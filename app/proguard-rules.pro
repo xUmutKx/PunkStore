@@ -1,0 +1,11 @@
+# Shrink only: no renaming (reflection of the Play library and the generated serializers keep working), unused code and icons go.
+-dontobfuscate
+-keep class com.aurora.gplayapi.** { *; }
+-keep class com.google.protobuf.** { *; }
+-keepattributes *Annotation*, InnerClasses, Signature
+-dontwarn org.slf4j.**
+-dontwarn javax.annotation.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+-dontwarn okhttp3.internal.platform.**

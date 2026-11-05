@@ -17,7 +17,10 @@ android {
     }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // shrinking removes the unused part of the icon set and the libraries (the APK was about three times as big); names are kept (see proguard-rules.pro)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }
