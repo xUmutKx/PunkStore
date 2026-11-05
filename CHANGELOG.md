@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76
+- A project page inside every app's page when its address is a GitHub, GitLab or Codeberg project: stars, forks, issues, license, language, the latest releases with their files, and the README, in the store's own theme.
+- GitLab and Codeberg projects can be added as sources next to GitHub ones (`owner/repo`, `gl:group/project`, `cb:owner/repo` or a web address) and are installed from their latest release.
+- The root install choice stays saved: it was turned back into the session installer every time it was read.
+- Google Play searches run in parallel (the five variants of a search were asked one after the other).
+- The release build is shrunk (unused icons and library code removed; names are kept), so the APK is much smaller.
+
 ## 0.75
 - The extra APK button beside Get is gone (it squeezed the button). The Android mark at the top right of an app's page saves the APK to the Downloads folder.
 
