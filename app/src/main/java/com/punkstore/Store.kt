@@ -250,7 +250,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     }
     fun addGithub(full: String) {
         ghExtra = (ghExtra + full).distinct(); prefs.edit().putString("ghExtra", ghExtra.joinToString(",")).apply()
-        viewModelScope.launch { GitHubRepo.item(full, "Added by you")?.let { ghMap[it.pkg] = it } }
+        viewModelScope.launch { GitHubRepo.itemAny(full, "Added by you")?.let { ghMap[it.pkg] = it } }
     }
     var tabOrder by mutableStateOf((prefs.getString("tabOrder", "") ?: "").split(',').mapNotNull { n -> Tab.values().firstOrNull { it.name == n } }); private set
     fun orderedTabs(): List<Tab> { val all = Tab.values().filter { it.bottom }; return (tabOrder.filter { it in all } + all.filter { it !in tabOrder }) }
@@ -618,7 +618,7 @@ class Store(app: Application) : AndroidViewModel(app) {
     private fun loadExtra() = runCatching {
         val l = json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(AppItem.serializer()), extraFile.readText())
         l.filter { it.source == "STEAM" }.forEach { steamMap[it.pkg] = it }
-        playMap = l.filter { it.source != "STEAM" && it.source != "GITHUB" }.associateBy { it.pkg }
+        playMap = l.filter { it.source != "STEAM" && it.source != "GITHUB" && it.source != "GITLAB" && it.source != "CODEBERG" }.associateBy { it.pkg }
     }
 
     /** Google Play üst listeleri + kurulu uygulamaların güncelleme denetimi. */
@@ -680,15 +680,15 @@ class Store(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun ghReal(pkg: String): String = if (pkg.startsWith("gh:")) prefs.getString("ghreal_$pkg", null) ?: GitHubRepo.knownReal(pkg.removePrefix("gh:")) ?: pkg else pkg
+    fun ghReal(pkg: String): String = if (isForgePkg(pkg)) prefs.getString("ghreal_$pkg", null) ?: (if (pkg.startsWith("gh:")) GitHubRepo.knownReal(pkg.removePrefix("gh:")) else null) ?: pkg else pkg
     fun setGhReal(pkg: String, real: String) { prefs.edit().putString("ghreal_$pkg", real).apply() }
     fun isInstalled(a: AppItem) = installed.containsKey(a.pkg) || installed.containsKey(ghReal(a.pkg))
     fun hasUpdate(a: AppItem) = a.pkg !in ignored && (installed[a.pkg]?.let { it < a.versionCode } == true || ghUpdate(a))
     /** A GitHub app (mine included: Pulse) that is installed and whose latest release tag is newer than the installed version name. Punk Store itself is handled by selfUpdate. */
     private fun ghUpdate(a: AppItem): Boolean {
-        if (a.source != "GITHUB") return false
+        if (a.source != "GITHUB" && a.source != "GITLAB" && a.source != "CODEBERG") return false
         val real = ghReal(a.pkg)
-        if (real.startsWith("gh:") || real == getApplication<Application>().packageName || !installed.containsKey(real)) return false
+        if (isForgePkg(real) || real == getApplication<Application>().packageName || !installed.containsKey(real)) return false
         return runCatching { Updater.isNewer(a.versionName, getApplication<Application>().packageManager.getPackageInfo(real, 0).versionName.orEmpty()) }.getOrDefault(false)
     }
     fun byPkg(pkg: String) = apps.firstOrNull { it.pkg == pkg } ?: steamMap[pkg] ?: ghMap[pkg]

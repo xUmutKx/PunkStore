@@ -79,6 +79,13 @@ object GitHubRepo {
             ?: apks.firstOrNull()
     }
 
+    /** A source entry as the person typed it: "owner/repo" (GitHub), "gl:group/project" (GitLab) or "cb:owner/repo" (Codeberg). */
+    suspend fun itemAny(entry: String, group: String): AppItem? = when {
+        entry.startsWith("gl:") -> ForgeRepo.item(Forge.GITLAB, entry.removePrefix("gl:"), group)
+        entry.startsWith("cb:") -> ForgeRepo.item(Forge.CODEBERG, entry.removePrefix("cb:"), group)
+        else -> item(entry, group)
+    }
+
     suspend fun item(full: String, group: String, repoJson: JsonElement? = null): AppItem? = withContext(Dispatchers.IO) {
         runCatching {
             // one request per repo (the repo info comes from the list when we have it); no answer (limit, offline) = the last good copy
@@ -111,7 +118,7 @@ object GitHubRepo {
     }
 
     suspend fun curatedItems(extra: List<String>): List<AppItem> = coroutineScope {
-        (curated + extra.map { it to "Added by you" }).map { (full, g) -> async { item(full, g) } }.awaitAll().filterNotNull()
+        (curated + extra.map { it to "Added by you" }).map { (full, g) -> async { itemAny(full, g) } }.awaitAll().filterNotNull()
     }
 }
 
@@ -275,8 +282,8 @@ fun GithubSourcesList(s: Store, onOpen: (String) -> Unit) {
         item {
             SteamSection(t("Kaynak ekle", "Add a source"))
             Row(Modifier.padding(16.dp, 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.OutlinedTextField(adding, { adding = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("owner/repo") })
-                Text(t("Ekle", "Add"), Modifier.padding(start = 8.dp).clip(RoundedCornerShape(4.dp)).background(Steam.btn).clickable { if (Regex("[\\w.-]+/[\\w.-]+").matches(adding.trim())) { s.addGithub(adding.trim()); adding = "" } }.padding(horizontal = 16.dp, vertical = 14.dp), color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
+                androidx.compose.material3.OutlinedTextField(adding, { adding = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("owner/repo · gitlab.com/… · codeberg.org/…") })
+                Text(t("Ekle", "Add"), Modifier.padding(start = 8.dp).clip(RoundedCornerShape(4.dp)).background(Steam.btn).clickable { sourceEntry(adding)?.let { e -> s.addGithub(e); adding = "" } }.padding(horizontal = 16.dp, vertical = 14.dp), color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
             }
             if (s.ghExtra.isNotEmpty()) Text(t("Eklediklerin: ", "Yours: ") + s.ghExtra.joinToString(", "), Modifier.padding(16.dp, 0.dp), color = Steam.dim, fontSize = 12.sp)
         }

@@ -512,6 +512,7 @@ fun SteamDetail(s: Store, a: AppItem, onBack: () -> Unit, onOpen: (String) -> Un
                 Text(t("ETİKETLER", "TAGS"), Modifier.padding(top = 16.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { tags.forEach { c -> Text(I18n.category(c), Modifier.clip(RoundedCornerShape(Steam.corner.dp)).background(Steam.box).clickable { onCategory(c) }.padding(horizontal = 14.dp, vertical = 9.dp), color = Steam.link, fontSize = 15.sp, maxLines = 1) } }
             }
+            if (a.source != "STEAM") ProjectDetails(a)
             if (a.source == "STEAM") SteamExtras(s, a, onOpen, ::web)
             // ---- DEĞERLENDİRMELER
             Text(t("DEĞERLENDİRMELER", "REVIEWS"), Modifier.padding(top = 18.dp, bottom = 8.dp), color = W, fontSize = 16.sp)
